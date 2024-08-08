@@ -18,9 +18,11 @@ class Event {
 
 val deviceEvent = Event()
 
+val deviceMessageEvent = Event()
+
 @Composable
-fun onDeviceEvent(block: () -> Unit) {
-    DisposableEffect(Unit) {
+fun onEvent(event: Event, block: () -> Unit) {
+    DisposableEffect(event) {
         val removeAction = deviceEvent.registerAction {
             block()
         }

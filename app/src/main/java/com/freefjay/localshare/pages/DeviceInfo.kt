@@ -46,6 +46,7 @@ import com.freefjay.localshare.component.Title
 import com.freefjay.localshare.component.alertDialogState
 import com.freefjay.localshare.component.confirm
 import com.freefjay.localshare.component.formState
+import com.freefjay.localshare.getDevice
 import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.httpClient
@@ -65,6 +66,7 @@ import io.ktor.util.InternalAPI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.lang.NumberFormatException
 import java.net.InetAddress
 
 fun getLocalIp(): String? {
@@ -82,17 +84,6 @@ fun getLocalIp(): String? {
         return InetAddress.getLocalHost().hostAddress
     }
     return null
-}
-
-fun getDevice(): Device {
-    val device = Device()
-    device.clientId = Secure.ANDROID_ID
-    device.name = Build.DEVICE
-    device.ip = getLocalIp()
-    device.port = 20000
-    device.channelType = "app"
-    device.osName = "android"
-    return device
 }
 
 @OptIn(ExperimentalMaterial3Api::class, InternalAPI::class)
@@ -222,7 +213,11 @@ fun DeviceInfo(
                         modifier = Modifier.fillMaxWidth(),
                         value = port.value?.toString() ?: "",
                         onValueChange = {
-                            port.value = it.toInt()
+                            try {
+                                port.value = it.toInt()
+                            } catch (_: NumberFormatException) {
+
+                            }
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         placeholder = { Text(text = "端口号")}
