@@ -77,4 +77,5 @@ dependencies {
     implementation("io.ktor:ktor-client-core:2.3.12")
     implementation("io.ktor:ktor-client-cio:2.3.12")
     implementation("io.ktor:ktor-serialization-gson:2.3.12")
+    implementation("com.google.zxing:core:3.5.1")
 }

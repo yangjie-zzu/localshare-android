@@ -1,5 +1,6 @@
 package com.freefjay.localshare.pages
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,7 @@ import com.freefjay.localshare.component.tabState
 fun Home(
 
 ) {
-    val tabState by tabState("device")
+    val tabState = tabState("device")
 
     Column(
         modifier = Modifier
@@ -32,15 +33,8 @@ fun Home(
             if (tabState.activeKey == "device") {
                 DevicePage()
             }
-            if (tabState.activeKey == "info") {
-                Page(
-                    title = {
-                        Title {
-                            Text(text = "我的信息")
-                        }
-                    }
-                ) {
-                }
+            if (tabState.activeKey == "my") {
+                My()
             }
             if (tabState.activeKey == "setting") {
                 Page(
@@ -62,13 +56,25 @@ fun Home(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
-                Column {
+                Column(
+                    modifier = Modifier.clickable {
+                        tabState.activeKey = "device"
+                    }
+                ) {
                     Text(text = "设备")
                 }
-                Column {
+                Column(
+                    modifier = Modifier.clickable {
+                        tabState.activeKey = "my"
+                    }
+                ) {
                     Text(text = "我的")
                 }
-                Column {
+                Column(
+                    modifier = Modifier.clickable {
+                        tabState.activeKey = "setting"
+                    }
+                ) {
                     Text(text = "设置")
                 }
             }

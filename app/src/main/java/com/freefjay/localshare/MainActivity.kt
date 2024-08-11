@@ -21,13 +21,18 @@ import com.freefjay.localshare.component.Route
 import com.freefjay.localshare.component.Router
 import com.freefjay.localshare.component.RouterView
 import com.freefjay.localshare.model.Device
+import com.freefjay.localshare.model.DeviceMessage
+import com.freefjay.localshare.model.SysInfo
 import com.freefjay.localshare.pages.Home
 import com.freefjay.localshare.ui.theme.LocalshareTheme
 import com.freefjay.localshare.util.DbOpenHelper
 import com.freefjay.localshare.util.db
+import com.freefjay.localshare.util.queryOne
+import com.freefjay.localshare.util.save
 import com.freefjay.localshare.util.updateTableStruct
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
+import java.util.UUID
 import kotlin.reflect.KClass
 
 const val TAG = "LOCALSHARE"
@@ -40,6 +45,8 @@ val httpClient = HttpClient {
         requestTimeoutMillis = 60000
     }
 }
+
+var clientId: String? = null
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,10 +61,22 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(key1 = Unit, block = {
                 Log.i(TAG, "表结构同步开始")
-                listOf<KClass<out Any>>(Device::class).forEach {
+                listOf(Device::class, DeviceMessage::class, SysInfo::class).forEach {
                     updateTableStruct(it)
                 }
                 Log.i(TAG, "表结构同步成功")
+                clientId = run {
+                    var sysInfo = queryOne<SysInfo>("select * from sys_info where name = 'client_id'")
+                    if (sysInfo == null) {
+                        sysInfo = SysInfo(
+                            name = "client_id",
+                            value = UUID.randomUUID().toString()
+                        )
+                        save(sysInfo)
+                    }
+                    sysInfo.value
+                }
+                startServer()
                 init = true
             })
 

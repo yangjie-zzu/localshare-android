@@ -175,12 +175,7 @@ fun DeviceInfo(
                     }
                 }
             ) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "设备信息")
-                }
+                Text(text = "设备信息")
             }
         }
     ) {

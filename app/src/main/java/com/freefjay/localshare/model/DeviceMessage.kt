@@ -13,6 +13,8 @@ data class DeviceMessage(
     var filename: String? = null,
     var clientId: String? = null,
     var deviceId: Long? = null,
+    var sendMsgId: Long? = null,
+    var receiveMsgId: Long? = null,
     var type: String? = null,
     var createdTime: Date? = null,
     var seen: Boolean? = null

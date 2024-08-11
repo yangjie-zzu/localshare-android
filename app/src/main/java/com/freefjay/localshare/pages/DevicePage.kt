@@ -41,9 +41,11 @@ import com.freefjay.localshare.component.Title
 import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.util.queryList
+import deviceEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import onEvent
 
 @Composable
 fun DevicePage() {
@@ -61,6 +63,12 @@ fun DevicePage() {
     LaunchedEffect(key1 = Unit, block = {
         requestDevice()
     })
+
+    onEvent(event = deviceEvent) {
+        CoroutineScope(Dispatchers.IO).launch {
+            requestDevice()
+        }
+    }
 
     Page(
         title = {
@@ -96,12 +104,7 @@ fun DevicePage() {
                     }
                 }
             ) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "设备列表")
-                }
+                Text(text = "设备列表")
             }
         }
     ) {
@@ -117,6 +120,14 @@ fun DevicePage() {
                     Card {
                         Row(
                             modifier = Modifier
+                                .clickable {
+                                    globalRouter?.open(Route(
+                                        key = "messages",
+                                        content = {
+                                            DeviceMessageView(deviceId = item.id)
+                                        }
+                                    ))
+                                }
                                 .fillMaxWidth()
                                 .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)

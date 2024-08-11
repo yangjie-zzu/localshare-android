@@ -49,7 +49,10 @@ fun Title(
                 icon()
             }
         }
-        Box(modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
             content()
         }
         menu?.invoke()

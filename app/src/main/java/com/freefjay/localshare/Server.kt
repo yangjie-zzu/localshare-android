@@ -31,8 +31,8 @@ import java.util.Date
 
 fun getDevice(): Device {
     val device = Device()
-    device.clientId = Settings.Secure.ANDROID_ID
-    device.name = Build.DEVICE
+    device.clientId = clientId
+    device.name = "${Build.BRAND} ${Build.MODEL}"
     device.ip = getLocalIp()
     device.port = 20000
     device.channelType = "app"

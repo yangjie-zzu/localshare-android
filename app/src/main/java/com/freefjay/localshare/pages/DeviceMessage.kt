@@ -12,21 +12,24 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import com.freefjay.localshare.component.Page
+import com.freefjay.localshare.component.Title
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.util.queryList
 
 @Composable
 fun DeviceMessageView(
-    deviceId: Long
+    deviceId: Long?
 ) {
     val deviceMessages = remember {
         mutableStateListOf<DeviceMessage>()
     }
 
-    suspend fun queryMessage(deviceId: Long) {
-        val list = queryList<DeviceMessage>("select * from device_message where client_id = $deviceId")
+    suspend fun queryMessage(deviceId: Long?) {
+        val list = if (deviceId == null) null else queryList<DeviceMessage>("select * from device_message where client_id = $deviceId")
         deviceMessages.clear()
-        deviceMessages.addAll(list)
+        if (list != null) {
+            deviceMessages.addAll(list)
+        }
     }
 
     LaunchedEffect(deviceId, block = {
@@ -35,7 +38,9 @@ fun DeviceMessageView(
 
     Page(
         title = {
-            Text(text = "消息记录")
+            Title {
+                Text(text = "消息记录")
+            }
         }
     ) {
         LazyColumn(content = {
