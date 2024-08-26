@@ -7,7 +7,7 @@ import com.freefjay.localshare.util.Column
 data class Device(
     @Column(isPrimaryKey = true)
     var id: Long? = null,
-    var clientId: String? = null,
+    var clientCode: String? = null,
     var name: String? = null,
     var ip: String? = null,
     var port: Int? = null,

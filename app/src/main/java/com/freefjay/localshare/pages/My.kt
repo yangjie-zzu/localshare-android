@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,7 +56,7 @@ fun My() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("name: ${self.name ?: ""}")
-                    Text("clientId: ${self.clientId ?: ""}")
+                    Text("clientCode: ${self.clientCode ?: ""}")
                     Text("ip: ${self.ip ?: ""}")
                     Text("port: ${self.port ?: ""}")
                     Text("channelType: ${self.channelType ?: ""}")

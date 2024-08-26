@@ -33,7 +33,6 @@ import com.freefjay.localshare.util.updateTableStruct
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import java.util.UUID
-import kotlin.reflect.KClass
 
 const val TAG = "LOCALSHARE"
 
@@ -46,7 +45,7 @@ val httpClient = HttpClient {
     }
 }
 
-var clientId: String? = null
+var clientCode: String? = null
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +64,7 @@ class MainActivity : ComponentActivity() {
                     updateTableStruct(it)
                 }
                 Log.i(TAG, "表结构同步成功")
-                clientId = run {
+                clientCode = run {
                     var sysInfo = queryOne<SysInfo>("select * from sys_info where name = 'client_id'")
                     if (sysInfo == null) {
                         sysInfo = SysInfo(

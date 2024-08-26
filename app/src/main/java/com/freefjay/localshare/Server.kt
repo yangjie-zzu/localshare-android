@@ -1,10 +1,10 @@
 package com.freefjay.localshare
 
 import android.os.Build
-import android.provider.Settings
 import android.util.Log
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
+import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.pages.getLocalIp
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.queryOne
@@ -19,9 +19,7 @@ import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import io.ktor.server.request.receive
 import io.ktor.server.request.receiveText
-import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -31,7 +29,7 @@ import java.util.Date
 
 fun getDevice(): Device {
     val device = Device()
-    device.clientId = clientId
+    device.clientCode = clientCode
     device.name = "${Build.BRAND} ${Build.MODEL}"
     device.ip = getLocalIp()
     device.port = 20000
@@ -48,12 +46,12 @@ fun startServer() {
             routing {
                 post("/exchange") {
                     val body = call.receiveText()
-                    val (_, clientId, name, ip, port, channelType, osName, networkType, wifiName) = Gson().fromJson(body, Device::class.java)
-                    var otherDevice = queryList<Device>("select * from device where client_id = '${clientId}'").firstOrNull()
+                    val (_, clientCode, name, ip, port, channelType, osName, networkType, wifiName) = Gson().fromJson(body, Device::class.java)
+                    var otherDevice = queryList<Device>("select * from device where client_id = '${clientCode}'").firstOrNull()
                     if (otherDevice == null) {
                         otherDevice = Device()
                     }
-                    otherDevice.clientId = clientId
+                    otherDevice.clientCode = clientCode
                     otherDevice.name = name
                     otherDevice.ip = ip
                     otherDevice.port = port
@@ -72,13 +70,19 @@ fun startServer() {
 
                 post("/message") {
                     val body = call.receiveText()
-                    val deviceMessage = Gson().fromJson(body, DeviceMessage::class.java)
+                    Log.i(TAG, "接收到消息: ${body}")
+                    val deviceSendParams = Gson().fromJson(body, DeviceMessageParams::class.java)
+                    val deviceMessage = DeviceMessage()
+                    deviceMessage.oppositeId = deviceSendParams.sendId
+                    deviceMessage.content = deviceSendParams.content
+                    deviceMessage.filepath = deviceSendParams.filepath
+                    deviceMessage.isFile = deviceSendParams.isFile
                     deviceMessage.createdTime = Date()
-                    deviceMessage.seen = false
                     deviceMessage.type = "receive"
-                    val device = queryOne<Device>("select * from device where client_id = '${deviceMessage.clientId}'")
+                    val device = queryOne<Device>("select * from device where client_code = '${deviceSendParams.clientCode}'")
                     deviceMessage.deviceId = device?.id
                     save(deviceMessage)
+                    Log.i(TAG, "接收到消息: ${Gson().toJson(deviceMessage)}")
                     async {
                         deviceMessageEvent.doAction()
                     }

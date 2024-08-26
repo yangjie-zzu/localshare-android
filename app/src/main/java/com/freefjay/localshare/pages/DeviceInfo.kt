@@ -3,12 +3,9 @@ package com.freefjay.localshare.pages
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
-import android.os.Build
-import android.provider.Settings.Secure
 import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -56,7 +52,6 @@ import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.save
 import com.google.gson.Gson
 import io.ktor.client.call.body
-import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -237,11 +232,11 @@ fun DeviceInfo(
                                 val body = response.body<String>()
                                 Log.i(TAG, "body: $body")
                                 val deviceResult = Gson().fromJson(body, Device::class.java)
-                                var otherDevice = queryList<Device>("select * from device where client_id = '${deviceResult.clientId}'").firstOrNull()
+                                var otherDevice = queryList<Device>("select * from device where client_id = '${deviceResult.clientCode}'").firstOrNull()
                                 if (otherDevice == null) {
                                     otherDevice = Device()
                                 }
-                                otherDevice.clientId = deviceResult.clientId
+                                otherDevice.clientCode = deviceResult.clientCode
                                 otherDevice.name = deviceResult.name
                                 otherDevice.ip = deviceResult.ip
                                 otherDevice.port = deviceResult.port
