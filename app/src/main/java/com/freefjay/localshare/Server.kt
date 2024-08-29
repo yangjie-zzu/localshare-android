@@ -75,7 +75,7 @@ fun startServer() {
                     val deviceMessage = DeviceMessage()
                     deviceMessage.oppositeId = deviceSendParams.sendId
                     deviceMessage.content = deviceSendParams.content
-                    deviceMessage.filepath = deviceSendParams.filepath
+                    deviceMessage.filename = deviceMessage.filename
                     deviceMessage.isFile = deviceSendParams.isFile
                     deviceMessage.createdTime = Date()
                     deviceMessage.type = "receive"

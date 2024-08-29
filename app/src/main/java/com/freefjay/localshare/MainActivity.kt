@@ -24,6 +24,7 @@ import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.SysInfo
 import com.freefjay.localshare.pages.Home
+import com.freefjay.localshare.pages.registerFilePickerLauncher
 import com.freefjay.localshare.ui.theme.LocalshareTheme
 import com.freefjay.localshare.util.DbOpenHelper
 import com.freefjay.localshare.util.db
@@ -115,6 +116,7 @@ class MainActivity : ComponentActivity() {
                 }
             })
         }
+        registerFilePickerLauncher()
     }
 }
 

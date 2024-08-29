@@ -1,5 +1,6 @@
 package com.freefjay.localshare.pages
 
+import OnEvent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,7 +42,6 @@ import deviceEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import onEvent
 
 @Composable
 fun DevicePage() {
@@ -60,7 +60,7 @@ fun DevicePage() {
         requestDevice()
     })
 
-    onEvent(event = deviceEvent) {
+    OnEvent(event = deviceEvent) {
         CoroutineScope(Dispatchers.IO).launch {
             requestDevice()
         }
