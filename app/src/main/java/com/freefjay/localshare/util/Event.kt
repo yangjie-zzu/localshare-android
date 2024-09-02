@@ -3,15 +3,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import com.freefjay.localshare.TAG
 
-class Event {
-    private val actions = mutableListOf<() -> Unit>()
-    fun doAction() {
-        Log.i(TAG, "actions: ${actions.size}")
+class Event<T: Any> {
+    private val actions = mutableListOf<(data: T?) -> Unit>()
+    fun doAction(data: T? = null) {
         actions.forEach {
-            it()
+            it(data)
         }
     }
-    fun registerAction(onAction: () -> Unit): () -> Unit {
+    fun registerAction(onAction: (data: T?) -> Unit): () -> Unit {
         actions.add(onAction)
         return {
             actions.remove(onAction)
@@ -19,16 +18,14 @@ class Event {
     }
 }
 
-val deviceEvent = Event()
+val deviceEvent = Event<Unit>()
 
-val deviceMessageEvent = Event()
+val deviceMessageEvent = Event<Unit>()
 
 @Composable
-fun OnEvent(event: Event, block: () -> Unit) {
+fun <T : Any> OnEvent(event: Event<T>, block: (data: T?) -> Unit) {
     DisposableEffect(event) {
-        val removeAction = event.registerAction {
-            block()
-        }
+        val removeAction = event.registerAction(block)
         onDispose {
             removeAction()
         }

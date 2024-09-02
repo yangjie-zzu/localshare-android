@@ -153,8 +153,21 @@ suspend inline fun <reified T> queryOne(sql: String?, args: Array<String>? = nul
     return list.firstOrNull()
 }
 
-inline fun <reified T : Any> getValue(columnInfo: ColumnInfo, data: T): Any {
-    val value = columnInfo.kProperty?.getter?.call(data) ?: return "null"
+suspend inline fun <reified T : Any> queryById(id: Any?): T? {
+    val tableInfo = resolveTableInfo(T::class)
+    val primaryColumnInfo = tableInfo.columns?.find { it.isPrimaryKey == true } ?: return null
+    return queryOne("select * from ${tableInfo.name} where ${primaryColumnInfo.name} = ${sqlValue(primaryColumnInfo, id)}")
+}
+
+inline fun <reified T : Any> getValue(columnInfo: ColumnInfo, data: T?): Any {
+    val value = columnInfo.kProperty?.getter?.call(data)
+    return sqlValue(columnInfo, value)
+}
+
+fun sqlValue(columnInfo: ColumnInfo, value: Any?): Any {
+    if (value == null) {
+        return "null"
+    }
     if (columnInfo.type == "TEXT") {
         return if (columnInfo.javaType == Date::class.java) {
             "\"${(value as Date).format()}\""

@@ -1,6 +1,7 @@
 package com.freefjay.localshare.pages
 
 import OnEvent
+import android.widget.TextView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Card
@@ -30,11 +32,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.freefjay.localshare.R
 import com.freefjay.localshare.component.DropdownMenu
 import com.freefjay.localshare.component.Page
 import com.freefjay.localshare.component.Route
 import com.freefjay.localshare.component.Title
+import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.util.queryList

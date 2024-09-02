@@ -4,6 +4,7 @@ import OnEvent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -24,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,13 +44,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalTextToolbar
+import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Popup
+import androidx.core.text.bold
+import androidx.core.text.buildSpannedString
 import com.freefjay.localshare.R
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.clientCode
+import com.freefjay.localshare.component.AndroidTextView
 import com.freefjay.localshare.component.Page
 import com.freefjay.localshare.component.Title
 import com.freefjay.localshare.globalActivity
@@ -62,6 +70,7 @@ import com.freefjay.localshare.util.getFileInfo
 import com.freefjay.localshare.util.longClick
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.queryOne
+import com.freefjay.localshare.util.readableFileSize
 import com.freefjay.localshare.util.save
 import com.google.gson.Gson
 import deviceMessageEvent
@@ -176,18 +185,29 @@ fun DeviceMessageView(
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(Color.Green)
                                         .longClick {
-                                            show = true
+//                                            show = true
                                         }
                                         .onGloballyPositioned {
                                             offsetY = it.size.height
                                         }
                                         .padding(5.dp)
                                 ) {
-                                    SelectionContainer {
-                                        Column {
-                                            if (it.filename != null) Text(text = it.filename ?: "")
-                                            if (it.content != null) Text(text = it.content ?: "")
+                                    Column {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                        ) {
+                                            AndroidTextView(text = buildSpannedString {
+                                                if (it.filename != null) {
+                                                    this.bold {
+                                                        append(it.filename)
+                                                    }
+                                                }
+                                                if (it.size != null) {
+                                                    append(" ${readableFileSize(it.size)}")
+                                                }
+                                            })
                                         }
+                                        AndroidTextView(text = it.content)
                                     }
                                 }
                             }
@@ -288,7 +308,8 @@ fun DeviceMessageView(
                             type = "send",
                             content = content,
                             filepath = fileInfo?.path,
-                            isFile = fileInfo != null,
+                            filename = fileInfo?.name,
+                            size = fileInfo?.size?.toLong(),
                             deviceId = device?.id,
                             createdTime = Date()
                         )
@@ -299,7 +320,7 @@ fun DeviceMessageView(
                                 clientCode = clientCode,
                                 content = deviceMessage.content,
                                 filename = deviceMessage.filename,
-                                isFile = deviceMessage.isFile
+                                size = deviceMessage.size
                             )
                             ))
                             contentType(ContentType.Application.Json)
