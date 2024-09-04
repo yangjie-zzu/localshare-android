@@ -1,6 +1,8 @@
 package com.freefjay.localshare.pages
 
 import OnEvent
+import android.content.ContentResolver.MimeTypeInfo
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
@@ -18,15 +20,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
@@ -43,7 +49,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.TextToolbar
@@ -64,9 +72,11 @@ import com.freefjay.localshare.TAG
 import com.freefjay.localshare.clientCode
 import com.freefjay.localshare.component.AndroidTextView
 import com.freefjay.localshare.component.Page
+import com.freefjay.localshare.component.Route
 import com.freefjay.localshare.component.Title
 import com.freefjay.localshare.deviceMessageDownloadEvent
 import com.freefjay.localshare.globalActivity
+import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.httpClient
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
@@ -90,6 +100,7 @@ import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.Date
 
 lateinit var filePickerLauncher: ActivityResultLauncher<Array<String>>
@@ -150,10 +161,10 @@ fun DeviceMessageView(
     })
 
     OnEvent(event = deviceMessageEvent) {
-        Log.i(TAG, "DeviceMessageView: 消息事件")
-        CoroutineScope(Dispatchers.Default).launch {
-            Log.i(TAG, "DeviceMessageView: 事件测试")
-            queryMessage(deviceId)
+        if (it.deviceId == deviceId) {
+            CoroutineScope(Dispatchers.Default).launch {
+                queryMessage(deviceId)
+            }
         }
     }
 
@@ -201,53 +212,67 @@ fun DeviceMessageView(
                         }
                         Box {
                             if (it.type == "receive") {
-                                Column(
+                                Row(
                                     modifier = Modifier
                                         .fillMaxWidth(0.7f)
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(Color.Green)
-                                        .longClick {
-                                            show = true
+                                        .clickable {
+                                            it.saveUri?.let { saveUri ->
+                                                try {
+                                                    Log.i(TAG, "savePath: ${saveUri}")
+                                                    val intent = Intent(Intent.ACTION_VIEW)
+                                                    intent.addCategory(Intent.CATEGORY_DEFAULT)
+                                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    val uri = Uri.parse(saveUri)
+                                                    Log.i(TAG, "uri: ${uri}")
+                                                    intent.setDataAndType(
+                                                        uri,
+                                                        "text/plain"
+                                                    )
+                                                    globalActivity.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    Log.e(TAG, "", e)
+                                                }
+                                            }
                                         }
                                         .onGloballyPositioned {
                                             offsetY = it.size.height
                                         }
                                         .padding(5.dp)
                                 ) {
-                                    Column {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                        ) {
-                                            val progress = progressMap[it.id]
-//                                            it.filename?.let {filename ->
-//                                                Text(text = buildAnnotatedString {
-//                                                    append(filename)
-//                                                    withStyle(SpanStyle(fontWeight = FontWeight.Light)) {
-//                                                        if (progress != null) {
-//                                                            append(" ${readableFileSize(progress.handleSize)}/${readableFileSize(progress.totalSize)}")
-//                                                        }
-//                                                        if (progress == null && it.size != null) {
-//                                                            append(" ${readableFileSize(it.size)}")
-//                                                        }
-//                                                    }
-//                                                })
-//                                            }
-                                            AndroidTextView(text = buildSpannedString {
-                                                if (it.filename != null) {
-                                                    this.bold {
-                                                        append(it.filename)
-                                                    }
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        val progress = progressMap[it.id]
+                                        AndroidTextView(text = buildSpannedString {
+                                            if (it.filename != null) {
+                                                this.bold {
+                                                    append(it.filename)
                                                 }
-                                                if (progress != null) {
-                                                    append(" ${readableFileSize(progress.handleSize)}/${readableFileSize(progress.totalSize)}")
-                                                }
-                                                if (progress == null && it.size != null) {
-                                                    append(" ${readableFileSize(if (it.downloadSuccess == true) it.downloadSize else 0)}/${readableFileSize(it.size)}")
-                                                }
-                                            })
-                                        }
+                                            }
+                                            if (progress != null) {
+                                                append(" ${readableFileSize(progress.handleSize)}/${readableFileSize(progress.totalSize)}")
+                                            }
+                                            if (progress == null && it.size != null) {
+                                                append(" ${readableFileSize(if (it.downloadSuccess == true) it.downloadSize else 0)}/${readableFileSize(it.size)}")
+                                            }
+                                        })
                                         AndroidTextView(text = it.content)
                                     }
+                                    Image(
+                                        modifier = Modifier
+                                            .height(30.dp)
+                                            .width(20.dp)
+                                            .clickable {
+                                                show = true
+                                            },
+                                        painter = rememberVectorPainter(image = Icons.Rounded.MoreVert),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.FillHeight,
+                                        alpha = 0.2f
+                                    )
                                 }
                             }
                             if (it.type == "send") {
@@ -347,6 +372,7 @@ fun DeviceMessageView(
                             type = "send",
                             content = content,
                             filepath = fileInfo?.path,
+                            fileUri = fileInfo?.uri?.toString(),
                             filename = fileInfo?.name,
                             size = fileInfo?.size?.toLong(),
                             deviceId = device?.id,
@@ -360,8 +386,7 @@ fun DeviceMessageView(
                                 content = deviceMessage.content,
                                 filename = deviceMessage.filename,
                                 size = deviceMessage.size
-                            )
-                            ))
+                            )))
                             contentType(ContentType.Application.Json)
                         }
                         if (response.status == HttpStatusCode.OK) {

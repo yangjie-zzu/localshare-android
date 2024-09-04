@@ -3,6 +3,7 @@ package com.freefjay.localshare
 import Event
 import android.content.ContentValues
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -32,7 +33,11 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.request.receiveText
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondFile
+import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.core.isEmpty
@@ -40,6 +45,8 @@ import io.ktor.utils.io.core.readBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileNotFoundException
 import java.util.Date
 import kotlin.collections.firstOrNull
 import kotlin.collections.mutableMapOf
@@ -85,7 +92,7 @@ fun createServer(): NettyApplicationEngine {
                     otherDevice.wifiName = wifiName
                     save(otherDevice)
                     async {
-                        deviceEvent.doAction()
+                        deviceEvent.doAction(Unit)
                     }
                     call.respondText(contentType = ContentType.Application.Json) {
                         Gson().toJson(getDevice())
@@ -108,7 +115,7 @@ fun createServer(): NettyApplicationEngine {
                     save(deviceMessage)
                     Log.i(TAG, "接收到消息: ${Gson().toJson(deviceMessage)}")
                     async {
-                        deviceMessageEvent.doAction()
+                        deviceMessageEvent.doAction(deviceMessage)
                         if (device != null && deviceMessage.filename != null) {
                             val contentValues = ContentValues().apply {
                                 put(MediaStore.DownloadColumns.DISPLAY_NAME, deviceMessage.filename)
@@ -159,14 +166,50 @@ fun createServer(): NettyApplicationEngine {
                                         deviceMessage.downloadSize = downloadSize
                                         deviceMessage.size = contentLength
                                         deviceMessage.savePath = savePath
+                                        deviceMessage.saveUri = uri.toString()
                                         save(deviceMessage)
-                                        deviceMessageEvent.doAction()
+                                        deviceMessageEvent.doAction(deviceMessage)
+                                        try {
+                                            globalActivity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                                        } catch (e: Exception) {
+                                            Log.e(TAG, "takePersistableUriPermission: ", e)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                     call.response.status(HttpStatusCode.OK)
+                }
+
+                get("/download") {
+                    val messageId = call.parameters.get("messageId")?.toLong()
+                    val deviceMessage = queryOne<DeviceMessage>("select * from device_message where id = ${messageId}")
+                    val fileUri = deviceMessage?.fileUri
+                    if (fileUri == null) {
+                        call.respond(status = HttpStatusCode.NotFound, "not found path")
+                    } else {
+                        try {
+                            globalActivity.contentResolver.openInputStream(Uri.parse(fileUri))?.use {
+                                call.respondOutputStream(
+                                    contentLength = it.available().toLong()
+                                ) {
+                                    val out = this
+                                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                                    var n: Int
+                                    withContext(Dispatchers.IO) {
+                                        while (it.read(buffer).also { n = it } > 0) {
+                                            out.write(buffer, 0, n)
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e: FileNotFoundException) {
+                            Log.e(TAG, "FileNotFoundException: ", e)
+                            call.respond(status = HttpStatusCode.NotFound, "not found file")
+                        }
+                    }
                 }
             }
         }

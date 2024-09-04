@@ -9,6 +9,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import com.freefjay.localshare.globalActivity
 
 data class FileInfo(
+    val uri: Uri?,
     val path: String?,
     val name: String?,
     val size: Int?
@@ -20,6 +21,7 @@ fun getFileInfo(uri: Uri?): FileInfo? {
     cursor?.use {
         if (cursor.moveToFirst()) {
             return FileInfo(
+                uri = uri,
                 path = path,
                 name = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).let { if (it == -1) null else cursor.getString(it) },
                 size = cursor.getColumnIndex(OpenableColumns.SIZE).let { if (it == -1) null else cursor.getInt(it) }
