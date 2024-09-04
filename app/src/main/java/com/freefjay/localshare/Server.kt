@@ -2,10 +2,13 @@ package com.freefjay.localshare
 
 import Event
 import android.content.ContentValues
+import android.content.Intent
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.MediaStore.MediaColumns
 import android.util.Log
+import androidx.core.net.toFile
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
@@ -20,12 +23,14 @@ import io.ktor.client.plugins.onDownload
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.post
@@ -52,10 +57,12 @@ fun getDevice(): Device {
     return device
 }
 
-val deviceMessageDownloadEvents = mutableMapOf<Long?, Event<Double>>()
+class Progress(val messageId: Long?, val handleSize: Long, val totalSize: Long)
 
-fun startServer() {
-    embeddedServer(Netty, applicationEngineEnvironment {
+val deviceMessageDownloadEvent = Event<Progress>()
+
+fun createServer(): NettyApplicationEngine {
+    return embeddedServer(Netty, applicationEngineEnvironment {
         connector {
             port = 20000
         }
@@ -103,8 +110,6 @@ fun startServer() {
                     async {
                         deviceMessageEvent.doAction()
                         if (device != null && deviceMessage.filename != null) {
-                            val deviceMessageDownloadEvent = Event<Double>()
-                            deviceMessageDownloadEvents[deviceMessage.id] = deviceMessageDownloadEvent
                             val contentValues = ContentValues().apply {
                                 put(MediaStore.DownloadColumns.DISPLAY_NAME, deviceMessage.filename)
                                 put(MediaStore.DownloadColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
@@ -115,19 +120,24 @@ fun startServer() {
                                 null
                             }
                             Log.i(TAG, "uri: ${uri}")
+                            var savePath: String? = null
                             uri?.let { uri ->
+                                val cursor = globalActivity.contentResolver.query(uri, arrayOf(MediaColumns.DATA), null, null, null)
+                                cursor?.use {
+                                    if (it.moveToFirst()) {
+                                        val index = it.getColumnIndex(MediaColumns.DATA)
+                                        savePath = if (index != -1) it.getString(index) else null
+                                        Log.i(TAG, "path: ${savePath}")
+                                    }
+                                }
                                 globalActivity.contentResolver.openOutputStream(
                                     uri
                                 )
                             }?.use {
                                 httpClient.prepareGet("http://${device.ip}:${device.port}/download?messageId=${deviceMessage.oppositeId}") {
-                                    this.onDownload { bytesSentTotal, contentLength ->
-                                        async {
-                                            val progress = bytesSentTotal * 1.0/contentLength
-                                            deviceMessageDownloadEvent.doAction(progress)
-                                        }
-                                    }
                                 }.execute { response ->
+                                    val contentLength = response.headers[HttpHeaders.ContentLength]?.toLong() ?: 0L
+                                    var downloadSize = 0L
                                     withContext(Dispatchers.IO) {
                                         val startTime = Date()
                                         val channel = response.bodyAsChannel()
@@ -135,10 +145,22 @@ fun startServer() {
                                             val packet =
                                                 channel.readRemaining(limit = DEFAULT_BUFFER_SIZE.toLong())
                                             while (!packet.isEmpty) {
-                                                it.write(packet.readBytes())
+                                                val bytes = packet.readBytes()
+                                                it.write(bytes)
+                                                downloadSize += bytes.size
+                                                Log.i(TAG, "下载进度: ${downloadSize.toDouble()/contentLength}, ${downloadSize}, ${contentLength}")
+                                                async {
+                                                    deviceMessageDownloadEvent.doAction(Progress(messageId = deviceMessage.id, handleSize = downloadSize, totalSize = contentLength))
+                                                }
                                             }
                                         }
                                         Log.i(TAG, "下载用时: ${(Date().time - startTime.time)/1000}s")
+                                        deviceMessage.downloadSuccess = true
+                                        deviceMessage.downloadSize = downloadSize
+                                        deviceMessage.size = contentLength
+                                        deviceMessage.savePath = savePath
+                                        save(deviceMessage)
+                                        deviceMessageEvent.doAction()
                                     }
                                 }
                             }
@@ -148,5 +170,5 @@ fun startServer() {
                 }
             }
         }
-    }).start()
+    })
 }

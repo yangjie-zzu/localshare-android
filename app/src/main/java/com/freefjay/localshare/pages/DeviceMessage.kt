@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,18 +48,24 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Popup
 import androidx.core.text.bold
 import androidx.core.text.buildSpannedString
+import com.freefjay.localshare.Progress
 import com.freefjay.localshare.R
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.clientCode
 import com.freefjay.localshare.component.AndroidTextView
 import com.freefjay.localshare.component.Page
 import com.freefjay.localshare.component.Title
+import com.freefjay.localshare.deviceMessageDownloadEvent
 import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.httpClient
 import com.freefjay.localshare.model.Device
@@ -150,6 +157,21 @@ fun DeviceMessageView(
         }
     }
 
+    val progressMap = remember {
+        mutableStateMapOf<Long?, Progress?>()
+    }
+
+    var processTime by remember {
+        mutableStateOf(Date())
+    }
+
+    OnEvent(event = deviceMessageDownloadEvent, block = {
+        if (Date().time - processTime.time > 200 || (it != null && it.handleSize >= it.totalSize)) {
+            progressMap[it?.messageId] = it
+            processTime = Date()
+        }
+    })
+
     Page(
         title = {
             Title {
@@ -185,7 +207,7 @@ fun DeviceMessageView(
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(Color.Green)
                                         .longClick {
-//                                            show = true
+                                            show = true
                                         }
                                         .onGloballyPositioned {
                                             offsetY = it.size.height
@@ -196,14 +218,31 @@ fun DeviceMessageView(
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(5.dp)
                                         ) {
+                                            val progress = progressMap[it.id]
+//                                            it.filename?.let {filename ->
+//                                                Text(text = buildAnnotatedString {
+//                                                    append(filename)
+//                                                    withStyle(SpanStyle(fontWeight = FontWeight.Light)) {
+//                                                        if (progress != null) {
+//                                                            append(" ${readableFileSize(progress.handleSize)}/${readableFileSize(progress.totalSize)}")
+//                                                        }
+//                                                        if (progress == null && it.size != null) {
+//                                                            append(" ${readableFileSize(it.size)}")
+//                                                        }
+//                                                    }
+//                                                })
+//                                            }
                                             AndroidTextView(text = buildSpannedString {
                                                 if (it.filename != null) {
                                                     this.bold {
                                                         append(it.filename)
                                                     }
                                                 }
-                                                if (it.size != null) {
-                                                    append(" ${readableFileSize(it.size)}")
+                                                if (progress != null) {
+                                                    append(" ${readableFileSize(progress.handleSize)}/${readableFileSize(progress.totalSize)}")
+                                                }
+                                                if (progress == null && it.size != null) {
+                                                    append(" ${readableFileSize(if (it.downloadSuccess == true) it.downloadSize else 0)}/${readableFileSize(it.size)}")
                                                 }
                                             })
                                         }

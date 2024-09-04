@@ -134,7 +134,7 @@ suspend inline fun <reified T> queryList(sql: String?, args: Array<String>? = nu
                             BigDecimal::class.java -> if (cursor.getStringOrNull(index) != null) BigDecimal(cursor.getStringOrNull(index)) else null
                             ByteArray::class.java -> cursor.getBlobOrNull(index)
                             Date::class.java -> cursor.getStringOrNull(index)?.toDate()
-                            Boolean::class.java -> (cursor.getIntOrNull(index)).let { if (it == 0) false else null }
+                            java.lang.Boolean::class.java -> (cursor.getIntOrNull(index)).let { if (it == 0) false else if (it == 1) true else null }
                             else -> null
                         }
                     } else {

@@ -23,13 +23,13 @@ fun AndroidTextView(
         return
     }
     AndroidView(factory = {
-        TextView(it).apply {
-            this.text = text
-            this.setTextIsSelectable(isSelectable)
-            if (color != null) {
-                this.setTextColor(color)
-            }
-            this.setTypeface(null, fontWeight)
+        TextView(it)
+    }, modifier = modifier) {
+        it.text = text
+        it.setTextIsSelectable(isSelectable)
+        if (color != null) {
+            it.setTextColor(color)
         }
-    }, modifier = modifier)
+        it.setTypeface(null, fontWeight)
+    }
 }

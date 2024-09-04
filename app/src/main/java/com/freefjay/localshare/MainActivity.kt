@@ -1,5 +1,6 @@
 package com.freefjay.localshare
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -76,7 +77,6 @@ class MainActivity : ComponentActivity() {
                     }
                     sysInfo.value
                 }
-                startServer()
                 init = true
             })
 
@@ -117,6 +117,7 @@ class MainActivity : ComponentActivity() {
             })
         }
         registerFilePickerLauncher()
+        globalActivity.startService(Intent(globalActivity, HttpService::class.java))
     }
 }
 
