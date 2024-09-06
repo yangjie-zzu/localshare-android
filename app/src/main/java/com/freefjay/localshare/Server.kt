@@ -1,6 +1,7 @@
 package com.freefjay.localshare
 
 import Event
+import OnEvent
 import android.content.ContentValues
 import android.content.Intent
 import android.net.Uri
@@ -9,7 +10,11 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.MediaStore.MediaColumns
 import android.util.Log
-import androidx.core.net.toFile
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
@@ -20,7 +25,6 @@ import com.freefjay.localshare.util.save
 import com.google.gson.Gson
 import deviceEvent
 import deviceMessageEvent
-import io.ktor.client.plugins.onDownload
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
@@ -34,7 +38,6 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondFile
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
@@ -45,12 +48,9 @@ import io.ktor.utils.io.core.readBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.io.FileNotFoundException
 import java.util.Date
 import kotlin.collections.firstOrNull
-import kotlin.collections.mutableMapOf
-import kotlin.collections.set
 
 
 fun getDevice(): Device {
@@ -64,9 +64,9 @@ fun getDevice(): Device {
     return device
 }
 
-class Progress(val messageId: Long?, val handleSize: Long, val totalSize: Long)
+class FileProgress(val messageId: Long?, val handleSize: Long, val totalSize: Long)
 
-val deviceMessageDownloadEvent = Event<Progress>()
+val deviceMessageDownloadEvent = Event<FileProgress>()
 
 fun createServer(): NettyApplicationEngine {
     return embeddedServer(Netty, applicationEngineEnvironment {
@@ -157,7 +157,7 @@ fun createServer(): NettyApplicationEngine {
                                                 downloadSize += bytes.size
                                                 Log.i(TAG, "下载进度: ${downloadSize.toDouble()/contentLength}, ${downloadSize}, ${contentLength}")
                                                 async {
-                                                    deviceMessageDownloadEvent.doAction(Progress(messageId = deviceMessage.id, handleSize = downloadSize, totalSize = contentLength))
+                                                    deviceMessageDownloadEvent.doAction(FileProgress(messageId = deviceMessage.id, handleSize = downloadSize, totalSize = contentLength))
                                                 }
                                             }
                                         }
@@ -212,6 +212,21 @@ fun createServer(): NettyApplicationEngine {
                     }
                 }
             }
+        }
+    })
+}
+
+@Composable
+fun OnDownloadProgressEvent(block: (data: FileProgress) -> Unit) {
+
+    var processTime by remember {
+        mutableStateOf(Date())
+    }
+
+    OnEvent(event = deviceMessageDownloadEvent, block = {
+        if (Date().time - processTime.time > 200 || (it.handleSize >= it.totalSize)) {
+            block(it)
+            processTime = Date()
         }
     })
 }

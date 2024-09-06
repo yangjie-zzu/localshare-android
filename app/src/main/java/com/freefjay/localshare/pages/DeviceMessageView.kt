@@ -1,12 +1,9 @@
 package com.freefjay.localshare.pages
 
 import OnEvent
-import android.content.ContentResolver.MimeTypeInfo
 import android.content.Intent
 import android.net.Uri
-import android.provider.OpenableColumns
 import android.util.Log
-import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -21,17 +18,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.DisableSelection
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Button
@@ -51,12 +44,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.platform.LocalTextToolbar
-import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -64,17 +54,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Popup
 import androidx.core.text.bold
 import androidx.core.text.buildSpannedString
-import com.freefjay.localshare.Progress
+import com.freefjay.localshare.FileProgress
+import com.freefjay.localshare.OnDownloadProgressEvent
 import com.freefjay.localshare.R
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.clientCode
 import com.freefjay.localshare.component.AndroidTextView
 import com.freefjay.localshare.component.Page
 import com.freefjay.localshare.component.Route
+import com.freefjay.localshare.component.RouteContent
 import com.freefjay.localshare.component.Title
 import com.freefjay.localshare.deviceMessageDownloadEvent
 import com.freefjay.localshare.globalActivity
@@ -86,7 +77,6 @@ import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.util.FileInfo
 import com.freefjay.localshare.util.delete
 import com.freefjay.localshare.util.getFileInfo
-import com.freefjay.localshare.util.longClick
 import com.freefjay.localshare.util.openFile
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.queryOne
@@ -103,7 +93,6 @@ import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
 import java.util.Date
 
 lateinit var filePickerLauncher: ActivityResultLauncher<Array<String>>
@@ -171,19 +160,12 @@ fun DeviceMessageView(
         }
     }
 
-    val progressMap = remember {
-        mutableStateMapOf<Long?, Progress?>()
+    val fileProgressMap = remember {
+        mutableStateMapOf<Long?, FileProgress?>()
     }
 
-    var processTime by remember {
-        mutableStateOf(Date())
-    }
-
-    OnEvent(event = deviceMessageDownloadEvent, block = {
-        if (Date().time - processTime.time > 200 || (it.handleSize >= it.totalSize)) {
-            progressMap[it.messageId] = it
-            processTime = Date()
-        }
+    OnDownloadProgressEvent(block = {
+        fileProgressMap[it.messageId] = it
     })
 
     Page(
@@ -213,6 +195,15 @@ fun DeviceMessageView(
                         var show by remember {
                             mutableStateOf(false)
                         }
+                        fun openDetail() {
+                            globalRouter?.open(
+                                route = Route(
+                                    key = "message-${it.id}",
+                                ) {
+                                    DeviceMessageDetail(id = it.id)
+                                }
+                            )
+                        }
                         Box {
                             if (it.type == "receive") {
                                 Row(
@@ -221,7 +212,7 @@ fun DeviceMessageView(
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(Color.Green)
                                         .clickable {
-                                            openFile(it.saveUri, it.savePath)
+                                            openDetail()
                                         }
                                         .onGloballyPositioned {
                                             offsetY = it.size.height
@@ -231,21 +222,23 @@ fun DeviceMessageView(
                                     Column(
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        val progress = progressMap[it.id]
-                                        AndroidTextView(text = buildSpannedString {
+                                        val progress = fileProgressMap[it.id]
+                                        Text(text = buildAnnotatedString {
                                             if (it.filename != null) {
-                                                this.bold {
-                                                    append(it.filename)
+                                                append(it.filename)
+                                            }
+                                            withStyle(SpanStyle(fontWeight = FontWeight.Light)) {
+                                                if (progress != null) {
+                                                    append(" ${readableFileSize(progress.handleSize)}/${readableFileSize(progress.totalSize)}")
+                                                }
+                                                if (progress == null && it.size != null) {
+                                                    append(" ${readableFileSize(if (it.downloadSuccess == true) it.downloadSize else 0)}/${readableFileSize(it.size)}")
                                                 }
                                             }
-                                            if (progress != null) {
-                                                append(" ${readableFileSize(progress.handleSize)}/${readableFileSize(progress.totalSize)}")
-                                            }
-                                            if (progress == null && it.size != null) {
-                                                append(" ${readableFileSize(if (it.downloadSuccess == true) it.downloadSize else 0)}/${readableFileSize(it.size)}")
-                                            }
                                         })
-                                        AndroidTextView(text = it.content)
+                                        if (it.content != null) {
+                                            Text(text = it.content ?: "")
+                                        }
                                     }
                                     Image(
                                         modifier = Modifier
@@ -272,7 +265,7 @@ fun DeviceMessageView(
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(Color(141, 242, 242))
                                             .clickable {
-                                                openFile(it.fileUri, it.filename)
+                                                openDetail()
                                             }
                                             .onGloballyPositioned {
                                                 offsetX = it.positionInParent().x.toInt()
@@ -283,16 +276,18 @@ fun DeviceMessageView(
                                         Column(
                                             modifier = Modifier.weight(1f)
                                         ) {
-                                            val progress = progressMap[it.id]
-                                            AndroidTextView(text = buildSpannedString {
+                                            val progress = fileProgressMap[it.id]
+                                            Text(text = buildAnnotatedString {
                                                 if (it.filename != null) {
-                                                    this.bold {
-                                                        append(it.filename)
-                                                    }
+                                                    append(it.filename)
                                                 }
-                                                append(" ${readableFileSize(it.size)}")
+                                                withStyle(SpanStyle(fontWeight = FontWeight.Light)) {
+                                                    append(" ${readableFileSize(it.size)}")
+                                                }
                                             })
-                                            AndroidTextView(text = it.content)
+                                            if (it.content != null) {
+                                                Text(text = it.content ?: "")
+                                            }
                                         }
                                         Image(
                                             modifier = Modifier
