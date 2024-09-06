@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -53,6 +54,7 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.res.painterResource
@@ -85,6 +87,7 @@ import com.freefjay.localshare.util.FileInfo
 import com.freefjay.localshare.util.delete
 import com.freefjay.localshare.util.getFileInfo
 import com.freefjay.localshare.util.longClick
+import com.freefjay.localshare.util.openFile
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.queryOne
 import com.freefjay.localshare.util.readableFileSize
@@ -177,8 +180,8 @@ fun DeviceMessageView(
     }
 
     OnEvent(event = deviceMessageDownloadEvent, block = {
-        if (Date().time - processTime.time > 200 || (it != null && it.handleSize >= it.totalSize)) {
-            progressMap[it?.messageId] = it
+        if (Date().time - processTime.time > 200 || (it.handleSize >= it.totalSize)) {
+            progressMap[it.messageId] = it
             processTime = Date()
         }
     })
@@ -218,24 +221,7 @@ fun DeviceMessageView(
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(Color.Green)
                                         .clickable {
-                                            it.saveUri?.let { saveUri ->
-                                                try {
-                                                    Log.i(TAG, "savePath: ${saveUri}")
-                                                    val intent = Intent(Intent.ACTION_VIEW)
-                                                    intent.addCategory(Intent.CATEGORY_DEFAULT)
-                                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                    val uri = Uri.parse(saveUri)
-                                                    Log.i(TAG, "uri: ${uri}")
-                                                    intent.setDataAndType(
-                                                        uri,
-                                                        "text/plain"
-                                                    )
-                                                    globalActivity.startActivity(intent)
-                                                } catch (e: Exception) {
-                                                    Log.e(TAG, "", e)
-                                                }
-                                            }
+                                            openFile(it.saveUri, it.savePath)
                                         }
                                         .onGloballyPositioned {
                                             offsetY = it.size.height
@@ -276,12 +262,50 @@ fun DeviceMessageView(
                                 }
                             }
                             if (it.type == "send") {
-                                Row {
-                                    SelectionContainer {
-                                        Column {
-                                            Text(text = it.filename ?: "")
-                                            Text(text = it.content ?: "")
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.7f)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color(141, 242, 242))
+                                            .clickable {
+                                                openFile(it.fileUri, it.filename)
+                                            }
+                                            .onGloballyPositioned {
+                                                offsetX = it.positionInParent().x.toInt()
+                                                offsetY = it.size.height
+                                            }
+                                            .padding(5.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            val progress = progressMap[it.id]
+                                            AndroidTextView(text = buildSpannedString {
+                                                if (it.filename != null) {
+                                                    this.bold {
+                                                        append(it.filename)
+                                                    }
+                                                }
+                                                append(" ${readableFileSize(it.size)}")
+                                            })
+                                            AndroidTextView(text = it.content)
                                         }
+                                        Image(
+                                            modifier = Modifier
+                                                .height(30.dp)
+                                                .width(20.dp)
+                                                .clickable {
+                                                    show = true
+                                                },
+                                            painter = rememberVectorPainter(image = Icons.Rounded.MoreVert),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.FillHeight,
+                                            alpha = 0.2f
+                                        )
                                     }
                                 }
                             }
@@ -344,6 +368,15 @@ fun DeviceMessageView(
                             onClick = {
                                 openFilePicker(arrayOf("*/*")) {
                                     fileInfo = getFileInfo(it)
+                                    Log.i(TAG, "fileInfo: ${Gson().toJson(fileInfo)}")
+                                    if (it != null) {
+                                        try {
+                                            globalActivity.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                                        } catch (e: Exception) {
+                                            Log.e(TAG, "takePersistableUriPermission: ", e)
+                                        }
+                                    }
                                 }
                             }
                         ) {
