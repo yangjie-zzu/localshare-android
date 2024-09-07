@@ -74,6 +74,7 @@ import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.util.FileInfo
 import com.freefjay.localshare.util.delete
+import com.freefjay.localshare.util.downloadMessageFile
 import com.freefjay.localshare.util.format
 import com.freefjay.localshare.util.friendly
 import com.freefjay.localshare.util.getFileInfo
@@ -132,6 +133,7 @@ fun DeviceMessageView(
 
     suspend fun queryMessage(deviceId: Long?, scrollToBottom: Boolean = true) {
         Log.i(TAG, "deviceId: ${deviceId}")
+        val oldSize = deviceMessages.size
         val list =
             if (deviceId == null) null else queryList<DeviceMessage>("select * from device_message where device_id = $deviceId")
         deviceMessages.clear()
@@ -139,8 +141,11 @@ fun DeviceMessageView(
             deviceMessages.addAll(list)
         }
         if (scrollToBottom) {
-            currentCoroutineScope.launch {
-                listState.scrollToItem(deviceMessages.size)
+            val size = deviceMessages.size
+            if (size > oldSize) {
+                currentCoroutineScope.launch {
+                    listState.scrollToItem(size)
+                }
             }
         }
         Log.i(TAG, "deviceMessages: ${deviceMessages.size}")
@@ -233,6 +238,15 @@ fun DeviceMessageView(
                                                 horizontalArrangement = Arrangement.spacedBy(3.dp)
                                             ) {
                                                 Box(modifier = Modifier.size(20.dp)) {
+                                                    if (it.filename != null && it.downloadSuccess != true && fileProgress == null) {
+                                                        Image(painter = painterResource(id = R.drawable.download), contentDescription = "",
+                                                            modifier = Modifier.clickable {
+                                                                currentCoroutineScope.launch {
+                                                                    downloadMessageFile(device, it)
+                                                                }
+                                                            }
+                                                        )
+                                                    }
                                                     if (it.downloadSuccess == true) {
                                                         Image(painter = painterResource(id = R.drawable.download_success), contentDescription = "")
                                                     } else if (fileProgress != null) {

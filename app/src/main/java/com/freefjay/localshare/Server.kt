@@ -15,10 +15,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.documentfile.provider.DocumentFile
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.pages.getLocalIp
+import com.freefjay.localshare.util.downloadMessageFile
+import com.freefjay.localshare.util.getFileNameAndType
+import com.freefjay.localshare.util.queryFile
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.queryOne
 import com.freefjay.localshare.util.save
@@ -116,63 +120,7 @@ fun createServer(): NettyApplicationEngine {
                     Log.i(TAG, "接收到消息: ${Gson().toJson(deviceMessage)}")
                     async {
                         deviceMessageEvent.doAction(deviceMessage)
-                        if (device != null && deviceMessage.filename != null) {
-                            val contentValues = ContentValues().apply {
-                                put(MediaStore.DownloadColumns.DISPLAY_NAME, deviceMessage.filename)
-                                put(MediaStore.DownloadColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                            }
-                            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                globalActivity.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-                            } else {
-                                null
-                            }
-                            Log.i(TAG, "uri: ${uri}")
-                            var savePath: String? = null
-                            uri?.let { uri ->
-                                val cursor = globalActivity.contentResolver.query(uri, arrayOf(MediaColumns.DATA), null, null, null)
-                                cursor?.use {
-                                    if (it.moveToFirst()) {
-                                        val index = it.getColumnIndex(MediaColumns.DATA)
-                                        savePath = if (index != -1) it.getString(index) else null
-                                        Log.i(TAG, "path: ${savePath}")
-                                    }
-                                }
-                                globalActivity.contentResolver.openOutputStream(
-                                    uri
-                                )
-                            }?.use {
-                                httpClient.prepareGet("http://${device.ip}:${device.port}/download?messageId=${deviceMessage.oppositeId}") {
-                                }.execute { response ->
-                                    val contentLength = response.headers[HttpHeaders.ContentLength]?.toLong() ?: 0L
-                                    var downloadSize = 0L
-                                    withContext(Dispatchers.IO) {
-                                        val startTime = Date()
-                                        val channel = response.bodyAsChannel()
-                                        while (!channel.isClosedForRead) {
-                                            val packet =
-                                                channel.readRemaining(limit = DEFAULT_BUFFER_SIZE.toLong())
-                                            while (!packet.isEmpty) {
-                                                val bytes = packet.readBytes()
-                                                it.write(bytes)
-                                                downloadSize += bytes.size
-                                                Log.i(TAG, "下载进度: ${downloadSize.toDouble()/contentLength}, ${downloadSize}, ${contentLength}")
-                                                async {
-                                                    deviceMessageDownloadEvent.doAction(FileProgress(messageId = deviceMessage.id, handleSize = downloadSize, totalSize = contentLength))
-                                                }
-                                            }
-                                        }
-                                        Log.i(TAG, "下载用时: ${(Date().time - startTime.time)/1000}s")
-                                        deviceMessage.downloadSuccess = true
-                                        deviceMessage.downloadSize = downloadSize
-                                        deviceMessage.size = contentLength
-                                        deviceMessage.savePath = savePath
-                                        deviceMessage.saveUri = uri.toString()
-                                        save(deviceMessage)
-                                        deviceMessageEvent.doAction(deviceMessage)
-                                    }
-                                }
-                            }
-                        }
+                        downloadMessageFile(device, deviceMessage)
                     }
                     call.response.status(HttpStatusCode.OK)
                 }
