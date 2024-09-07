@@ -387,7 +387,6 @@ fun DeviceMessageView(
                                 openFilePicker(arrayOf("*/*")) {
                                     if (it != null) {
                                         fileInfo = getFileInfo(it)
-                                        Log.i(TAG, "fileInfo: ${Gson().toJson(fileInfo)}")
                                         try {
                                             globalActivity.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or
                                                     Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
