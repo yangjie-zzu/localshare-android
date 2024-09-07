@@ -169,12 +169,6 @@ fun createServer(): NettyApplicationEngine {
                                         deviceMessage.saveUri = uri.toString()
                                         save(deviceMessage)
                                         deviceMessageEvent.doAction(deviceMessage)
-                                        try {
-                                            globalActivity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                                        } catch (e: Exception) {
-                                            Log.e(TAG, "takePersistableUriPermission: ", e)
-                                        }
                                     }
                                 }
                             }

@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -40,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -54,20 +56,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import androidx.core.text.bold
-import androidx.core.text.buildSpannedString
 import com.freefjay.localshare.FileProgress
 import com.freefjay.localshare.OnDownloadProgressEvent
 import com.freefjay.localshare.R
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.clientCode
-import com.freefjay.localshare.component.AndroidTextView
 import com.freefjay.localshare.component.Page
 import com.freefjay.localshare.component.Route
-import com.freefjay.localshare.component.RouteContent
 import com.freefjay.localshare.component.Title
-import com.freefjay.localshare.deviceMessageDownloadEvent
 import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.httpClient
@@ -76,8 +74,9 @@ import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.util.FileInfo
 import com.freefjay.localshare.util.delete
+import com.freefjay.localshare.util.format
+import com.freefjay.localshare.util.friendly
 import com.freefjay.localshare.util.getFileInfo
-import com.freefjay.localshare.util.openFile
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.queryOne
 import com.freefjay.localshare.util.readableFileSize
@@ -204,61 +203,68 @@ fun DeviceMessageView(
                                 }
                             )
                         }
-                        Box {
-                            if (it.type == "receive") {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.7f)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color.Green)
-                                        .clickable {
-                                            openDetail()
-                                        }
-                                        .onGloballyPositioned {
-                                            offsetY = it.size.height
-                                        }
-                                        .padding(5.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        val progress = fileProgressMap[it.id]
-                                        Text(text = buildAnnotatedString {
-                                            if (it.filename != null) {
-                                                append(it.filename)
-                                            }
-                                            withStyle(SpanStyle(fontWeight = FontWeight.Light)) {
-                                                if (progress != null) {
-                                                    append(" ${readableFileSize(progress.handleSize)}/${readableFileSize(progress.totalSize)}")
-                                                }
-                                                if (progress == null && it.size != null) {
-                                                    append(" ${readableFileSize(if (it.downloadSuccess == true) it.downloadSize else 0)}/${readableFileSize(it.size)}")
-                                                }
-                                            }
-                                        })
-                                        if (it.content != null) {
-                                            Text(text = it.content ?: "")
-                                        }
-                                    }
-                                    Image(
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = if (it.type == "send") Arrangement.End else Arrangement.Start
+                        ) {
+                            Box {
+                                if (it.type == "receive") {
+                                    Row(
                                         modifier = Modifier
-                                            .height(30.dp)
-                                            .width(20.dp)
+                                            .fillMaxWidth(0.7f)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color.Green)
                                             .clickable {
-                                                show = true
-                                            },
-                                        painter = rememberVectorPainter(image = Icons.Rounded.MoreVert),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.FillHeight,
-                                        alpha = 0.2f
-                                    )
+                                                openDetail()
+                                            }
+                                            .onGloballyPositioned {
+                                                offsetY = it.size.height
+                                            }
+                                            .padding(5.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
+                                            val fileProgress = fileProgressMap[it.id]
+                                            Text(text = it.filename ?: "")
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                            ) {
+                                                Box(modifier = Modifier.size(20.dp)) {
+                                                    if (it.downloadSuccess == true) {
+                                                        Image(painter = painterResource(id = R.drawable.download_success), contentDescription = "")
+                                                    } else if (fileProgress != null) {
+                                                        CircularProgressIndicator(
+                                                            progress = fileProgress.handleSize.toFloat()/fileProgress.totalSize
+                                                        )
+                                                    }
+                                                }
+                                                Text(
+                                                    text = "${fileProgress?.let { fileProgress ->  "${readableFileSize(fileProgress.handleSize)}/" } ?: ""}${readableFileSize(fileProgress?.totalSize ?: it.size)}",
+                                                    fontWeight = FontWeight.Light, fontSize = 14.sp
+                                                )
+                                            }
+                                            if (it.content != null) {
+                                                Text(text = it.content ?: "")
+                                            }
+                                        }
+                                        Image(
+                                            modifier = Modifier
+                                                .height(30.dp)
+                                                .width(20.dp)
+                                                .clickable {
+                                                    show = true
+                                                },
+                                            painter = rememberVectorPainter(image = Icons.Rounded.MoreVert),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.FillHeight,
+                                            alpha = 0.2f
+                                        )
+                                    }
                                 }
-                            }
-                            if (it.type == "send") {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
+                                if (it.type == "send") {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth(0.7f)
@@ -276,13 +282,14 @@ fun DeviceMessageView(
                                         Column(
                                             modifier = Modifier.weight(1f)
                                         ) {
+                                            Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
                                             val progress = fileProgressMap[it.id]
                                             Text(text = buildAnnotatedString {
                                                 if (it.filename != null) {
                                                     append(it.filename)
                                                 }
-                                                withStyle(SpanStyle(fontWeight = FontWeight.Light)) {
-                                                    append(" ${readableFileSize(it.size)}")
+                                                withStyle(SpanStyle(fontWeight = FontWeight.Light, fontSize = 14.sp)) {
+                                                    append("\n${readableFileSize(it.size)}")
                                                 }
                                             })
                                             if (it.content != null) {
@@ -303,33 +310,33 @@ fun DeviceMessageView(
                                         )
                                     }
                                 }
-                            }
-                            if (show) {
-                                Popup(
-                                    onDismissRequest = { show = false },
-                                    offset = IntOffset(offsetX, offsetY)
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .background(color = Color.White)
-                                            .border(
-                                                border = BorderStroke(
-                                                    width = 1.dp,
-                                                    color = Color(0, 0, 0, 20)
-                                                ),
-                                                shape = RoundedCornerShape(5.dp)
-                                            )
-                                            .padding(5.dp)
+                                if (show) {
+                                    Popup(
+                                        onDismissRequest = { show = false },
+                                        offset = IntOffset(offsetX, offsetY)
                                     ) {
-                                        Row(
-                                            modifier = Modifier.clickable {
-                                                CoroutineScope(Dispatchers.IO).launch {
-                                                    delete<DeviceMessage>(it.id)
-                                                    queryMessage(device?.id, false)
-                                                }
-                                            }
+                                        Column(
+                                            modifier = Modifier
+                                                .background(color = Color.White)
+                                                .border(
+                                                    border = BorderStroke(
+                                                        width = 1.dp,
+                                                        color = Color(0, 0, 0, 20)
+                                                    ),
+                                                    shape = RoundedCornerShape(5.dp)
+                                                )
+                                                .padding(5.dp)
                                         ) {
-                                            Text("删除")
+                                            Row(
+                                                modifier = Modifier.clickable {
+                                                    CoroutineScope(Dispatchers.IO).launch {
+                                                        delete<DeviceMessage>(it.id)
+                                                        queryMessage(device?.id, false)
+                                                    }
+                                                }
+                                            ) {
+                                                Text("删除")
+                                            }
                                         }
                                     }
                                 }

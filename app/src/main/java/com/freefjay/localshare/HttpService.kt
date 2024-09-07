@@ -17,6 +17,12 @@ class HttpService : Service() {
         super.onCreate()
         Log.i(TAG, "创建service")
         httpService.start()
+        CoroutineScope(Dispatchers.IO).launch {
+            while (true) {
+                delay(1000)
+                Log.i(TAG, "HttpService运行检测")
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

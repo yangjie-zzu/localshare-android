@@ -1,5 +1,6 @@
 package com.freefjay.localshare.util
 
+import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -11,13 +12,13 @@ fun Date.format(pattern: String = "yyyy-MM-dd HH:mm:ss"): String {
 }
 
 val weekDayMap = mapOf(
-    1 to "一",
-    2 to "二",
-    3 to "三",
-    4 to "四",
-    5 to "吴",
-    6 to "六",
-    7 to "日"
+    1 to "日",
+    2 to "一",
+    3 to "二",
+    4 to "三",
+    5 to "四",
+    6 to "五",
+    7 to "六"
 )
 
 fun Date.friendly(): String {
@@ -36,13 +37,24 @@ fun Date.friendly(): String {
         if (year == nowYear && month == nowMonth) "" else "${month + 1}月"
     }${
         if (year == nowYear && month == nowMonth && day == nowDay) "" else "${day}日"
+    }周${
+        weekDayMap[kotlin.run {
+            val weekDay = calendar.get(Calendar.DAY_OF_WEEK)
+            if (calendar.firstDayOfWeek == Calendar.SUNDAY) {
+                if (weekDay == 1) {
+                    7
+                } else {
+                    weekDay - 1
+                }
+            } else {
+                weekDay
+            }
+        }]
     }${
-        calendar.get(Calendar.HOUR)
-    }时${
+        calendar.get(Calendar.HOUR_OF_DAY)
+    }:${
         calendar.get(Calendar.MINUTE)
-    }分${
+    }:${
         calendar.get(Calendar.SECOND)
-    }秒 周${
-        weekDayMap[calendar.get(Calendar.DAY_OF_WEEK)]
     }"
 }

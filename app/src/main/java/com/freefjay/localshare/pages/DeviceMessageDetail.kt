@@ -102,7 +102,7 @@ fun DeviceMessageDetail(
                     }
                     Text(text = "${
                         deviceMessage?.type?.let { if (it == "receive") "接收" else if (it == "send") "发送" else ""}
-                    }时间：${deviceMessage?.createdTime?.friendly() ?: ""}",
+                    }时间：${deviceMessage?.createdTime?.format("yyyy-MM-dd HH:mm:ss E") ?: ""}",
                         fontWeight = FontWeight.Light,
                         fontSize = 14.sp)
                 }
