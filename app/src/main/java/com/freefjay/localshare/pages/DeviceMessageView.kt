@@ -53,6 +53,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -78,6 +79,7 @@ import com.freefjay.localshare.util.downloadMessageFile
 import com.freefjay.localshare.util.format
 import com.freefjay.localshare.util.friendly
 import com.freefjay.localshare.util.getFileInfo
+import com.freefjay.localshare.util.getFileNameAndType
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.queryOne
 import com.freefjay.localshare.util.readableFileSize
@@ -378,14 +380,14 @@ fun DeviceMessageView(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Box(
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Button(
                             onClick = {
                                 openFilePicker(arrayOf("*/*")) {
-                                    fileInfo = getFileInfo(it)
-                                    Log.i(TAG, "fileInfo: ${Gson().toJson(fileInfo)}")
                                     if (it != null) {
+                                        fileInfo = getFileInfo(it)
+                                        Log.i(TAG, "fileInfo: ${Gson().toJson(fileInfo)}")
                                         try {
                                             globalActivity.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or
                                                     Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
@@ -396,7 +398,30 @@ fun DeviceMessageView(
                                 }
                             }
                         ) {
-                            Text(text = fileInfo?.let { it.name ?: "" } ?:"选择文件")
+                            Row {
+                                fileInfo.let {
+                                    if (it != null) {
+                                        val names = getFileNameAndType(it.name)
+                                        Text(
+                                            text = names?.get(0) ?: "",
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        )
+                                        Text(
+                                            text = names?.get(1)?.let { ".${it}" } ?: "",
+                                        )
+                                        Text(
+                                            text = " ${readableFileSize(it.size?.toLong()) ?: ""}",
+                                            fontWeight = FontWeight.Light, maxLines = 1
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "选择文件",
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                     if (fileInfo != null) {
