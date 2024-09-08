@@ -2,6 +2,7 @@ package com.freefjay.localshare.util
 
 import android.content.ContentValues
 import android.content.Intent
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -12,10 +13,16 @@ import android.provider.OpenableColumns
 import android.provider.SyncStateContract.Columns
 import android.util.Log
 import android.webkit.MimeTypeMap
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.core.content.FileProvider
+import androidx.core.database.getBlobOrNull
+import androidx.core.database.getFloatOrNull
+import androidx.core.database.getIntOrNull
+import androidx.core.database.getStringOrNull
 import com.freefjay.localshare.FileProgress
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.deviceMessageDownloadEvent
@@ -33,6 +40,7 @@ import io.ktor.utils.io.core.readBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.Date
 
 data class FileInfo(
@@ -60,7 +68,7 @@ fun getFileInfo(uri: Uri?): FileInfo? {
     return null
 }
 
-fun queryFile(uri: Uri?, name: String?): Map<String, String?>? {
+fun queryFile(uri: Uri?, name: String?): Map<String, Any?>? {
     if (uri == null) {
         return null
     }
@@ -70,9 +78,19 @@ fun queryFile(uri: Uri?, name: String?): Map<String, String?>? {
         "${MediaStore.Downloads.DISPLAY_NAME}=?",
         arrayOf(name), null)?.use {
         if (it.moveToFirst()) {
-            val map = mutableMapOf<String, String?>()
+            val map = mutableMapOf<String, Any?>()
             for (i in 0 until it.columnCount) {
-                map[it.getColumnName(i)] = it.getString(i)
+                val type = it.getType(i)
+                map[it.getColumnName(i)] = run {
+                    when (type) {
+                        Cursor.FIELD_TYPE_NULL -> null
+                        Cursor.FIELD_TYPE_STRING -> it.getIntOrNull(i)
+                        Cursor.FIELD_TYPE_INTEGER -> it.getStringOrNull(i)
+                        Cursor.FIELD_TYPE_FLOAT -> it.getFloatOrNull(i)
+                        Cursor.FIELD_TYPE_BLOB -> it.getBlobOrNull(i)
+                        else -> null
+                    }
+                }
             }
             Log.i(TAG, "map: ${Gson().toJson(map)}")
             map
@@ -119,6 +137,58 @@ fun openFile(uriStr: String?, path: String?) {
     }
 }
 
+fun openFileByPath(path: String?) {
+    if (path == null) {
+        return
+    }
+    Log.i(TAG, "openFileByPath: ${path}")
+    val uriStr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        globalActivity.contentResolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaColumns._ID),
+            "${MediaColumns.DATA}=?",
+            arrayOf(path),
+            null
+        )?.use {
+            if (it.moveToFirst()) {
+                Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, "${it.getIntOrNull(it.getColumnIndex(MediaColumns._ID))}").toString()
+            } else {
+                FileProvider.getUriForFile(globalActivity, "${globalActivity.applicationContext.packageName}.provider", File(path)).toString()
+            }
+        }
+    } else {
+        path.let { File(it).toURI().toString() }
+    }
+    if (uriStr == null) {
+        return
+    }
+    try {
+        Log.i(TAG, "savePath: ${uriStr}")
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.addCategory(Intent.CATEGORY_DEFAULT)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val uri = Uri.parse(uriStr)
+        val type =
+            run {
+                val extension = MimeTypeMap.getFileExtensionFromUrl(path)
+                if (extension != null) {
+                    MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+                } else {
+                    null
+                }
+            }
+        Log.i(TAG, "type: ${type}, uri: ${uri}")
+        intent.setDataAndType(
+            uri,
+            type
+        )
+        globalActivity.startActivity(intent)
+    } catch (e: Exception) {
+        Log.e(TAG, "", e)
+    }
+}
+
 fun getFileNameAndType(filename: String?): Array<String?>? {
     if (filename == null) {
         return null
@@ -128,73 +198,54 @@ fun getFileNameAndType(filename: String?): Array<String?>? {
 }
 
 suspend fun downloadMessageFile(device: Device?, deviceMessage: DeviceMessage) {
-    if (device != null && deviceMessage.filename != null) {
-        var saveFilename = deviceMessage.filename
-        val names = getFileNameAndType(deviceMessage.filename)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                var i = 0
-                while (queryFile(MediaStore.Downloads.EXTERNAL_CONTENT_URI, saveFilename) != null) {
+    val filename = deviceMessage.filename
+    if (device != null && filename != null) {
+        val file = run {
+            val downloadPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
+            val dir = File(downloadPath)
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+            var downloadFile = File(downloadPath, filename)
+            if (downloadFile.exists()) {
+                val nameAndType = getFileNameAndType(filename)
+                var i = 1
+                do {
+                    downloadFile = File(downloadPath, "${nameAndType?.get(0)}(${i})${if (nameAndType?.get(1) != null) ".${nameAndType[1]}" else ""}")
                     i ++
-                    saveFilename = "${names?.get(0)}(${i})${names?.get(1)?.let { ".${it}" } ?: ""}"
-                }
-            } catch (e : Exception) {
-                Log.e(TAG, "", e)
+                } while (downloadFile.exists())
             }
+            downloadFile.createNewFile()
+            downloadFile
         }
-        val contentValues = ContentValues().apply {
-            put(MediaStore.DownloadColumns.DISPLAY_NAME, saveFilename)
-            put(MediaStore.DownloadColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-        }
-        val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            globalActivity.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-        } else {
-            null
-        }
-        Log.i(TAG, "uri: ${uri}")
-        var savePath: String? = null
-        uri?.let { uri ->
-            val cursor = globalActivity.contentResolver.query(uri, arrayOf(MediaColumns.DATA), null, null, null)
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val index = it.getColumnIndex(MediaColumns.DATA)
-                    savePath = if (index != -1) it.getString(index) else null
-                    Log.i(TAG, "path: ${savePath}")
-                }
-            }
-            globalActivity.contentResolver.openOutputStream(
-                uri
-            )
-        }?.use {
-            httpClient.prepareGet("http://${device.ip}:${device.port}/download?messageId=${deviceMessage.oppositeId}") {
-            }.execute { response ->
-                val contentLength = response.headers[HttpHeaders.ContentLength]?.toLong() ?: 0L
-                var downloadSize = 0L
-                withContext(Dispatchers.IO) {
-                    val startTime = Date()
-                    val channel = response.bodyAsChannel()
-                    while (!channel.isClosedForRead) {
-                        val packet =
-                            channel.readRemaining(limit = DEFAULT_BUFFER_SIZE.toLong())
-                        while (!packet.isEmpty) {
-                            val bytes = packet.readBytes()
-                            it.write(bytes)
-                            downloadSize += bytes.size
-                            Log.i(TAG, "下载进度: ${downloadSize.toDouble()/contentLength}, ${downloadSize}, ${contentLength}")
-                            async {
-                                deviceMessageDownloadEvent.doAction(FileProgress(messageId = deviceMessage.id, handleSize = downloadSize, totalSize = contentLength))
-                            }
+        Log.i(TAG, "file: ${file.absolutePath}")
+        httpClient.prepareGet("http://${device.ip}:${device.port}/download?messageId=${deviceMessage.oppositeId}") {
+        }.execute { response ->
+            val contentLength = response.headers[HttpHeaders.ContentLength]?.toLong() ?: 0L
+            var downloadSize = 0L
+            withContext(Dispatchers.IO) {
+                val startTime = Date()
+                val channel = response.bodyAsChannel()
+                while (!channel.isClosedForRead) {
+                    val packet =
+                        channel.readRemaining(limit = DEFAULT_BUFFER_SIZE.toLong())
+                    while (!packet.isEmpty) {
+                        val bytes = packet.readBytes()
+                        file.appendBytes(bytes)
+                        downloadSize += bytes.size
+                        Log.i(TAG, "下载进度: ${downloadSize.toDouble()/contentLength}, ${downloadSize}, ${contentLength}")
+                        async {
+                            deviceMessageDownloadEvent.doAction(FileProgress(messageId = deviceMessage.id, handleSize = downloadSize, totalSize = contentLength))
                         }
                     }
-                    Log.i(TAG, "下载用时: ${(Date().time - startTime.time)/1000}s")
-                    deviceMessage.downloadSuccess = true
-                    deviceMessage.downloadSize = downloadSize
-                    deviceMessage.size = contentLength
-                    deviceMessage.savePath = savePath
-                    deviceMessage.saveUri = uri.toString()
-                    save(deviceMessage)
-                    deviceMessageEvent.doAction(deviceMessage)
                 }
+                Log.i(TAG, "下载用时: ${(Date().time - startTime.time)/1000}s")
+                deviceMessage.downloadSuccess = true
+                deviceMessage.downloadSize = downloadSize
+                deviceMessage.size = contentLength
+                deviceMessage.savePath = file.absolutePath
+                save(deviceMessage)
+                deviceMessageEvent.doAction(deviceMessage)
             }
         }
     }

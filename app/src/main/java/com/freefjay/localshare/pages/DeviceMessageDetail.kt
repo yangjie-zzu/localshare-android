@@ -30,6 +30,7 @@ import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.util.format
 import com.freefjay.localshare.util.friendly
 import com.freefjay.localshare.util.openFile
+import com.freefjay.localshare.util.openFileByPath
 import com.freefjay.localshare.util.queryById
 import com.freefjay.localshare.util.readableFileSize
 
@@ -110,7 +111,7 @@ fun DeviceMessageDetail(
             if (deviceMessage?.filename != null) {
                 Button(onClick = {
                     if (deviceMessage?.type == "receive") {
-                        openFile(deviceMessage?.saveUri, deviceMessage?.filename)
+                        openFileByPath(deviceMessage?.savePath)
                     }
                     if (deviceMessage?.type == "send") {
                         openFile(deviceMessage?.fileUri, deviceMessage?.filename)
