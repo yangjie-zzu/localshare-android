@@ -26,15 +26,22 @@ import androidx.core.database.getStringOrNull
 import com.freefjay.localshare.FileProgress
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.deviceMessageDownloadEvent
+import com.freefjay.localshare.getDevice
 import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.httpClient
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.google.gson.Gson
 import deviceMessageEvent
+import io.ktor.client.call.body
+import io.ktor.client.request.post
 import io.ktor.client.request.prepareGet
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.utils.io.core.isEmpty
 import io.ktor.utils.io.core.readBytes
 import kotlinx.coroutines.Dispatchers
@@ -248,5 +255,37 @@ suspend fun downloadMessageFile(device: Device?, deviceMessage: DeviceMessage) {
                 deviceMessageEvent.doAction(deviceMessage)
             }
         }
+    }
+}
+
+suspend fun exchangeDevice(ip: String?, port: Int?): Device? {
+    if (ip == null || port == null) {
+        return null
+    }
+    val response = httpClient.post("http://${ip}:${port}/exchange") {
+        setBody(Gson().toJson(getDevice()))
+        contentType(ContentType.Application.Json)
+    }
+    Log.i(TAG, "status: ${response.status}")
+    if (response.status == HttpStatusCode.OK) {
+        val body = response.body<String>()
+        Log.i(TAG, "body: $body")
+        val deviceResult = Gson().fromJson(body, Device::class.java)
+        var otherDevice = queryList<Device>("select * from device where client_id = '${deviceResult.clientCode}'").firstOrNull()
+        if (otherDevice == null) {
+            otherDevice = Device()
+        }
+        otherDevice.clientCode = deviceResult.clientCode
+        otherDevice.name = deviceResult.name
+        otherDevice.ip = deviceResult.ip
+        otherDevice.port = deviceResult.port
+        otherDevice.channelType = deviceResult.channelType
+        otherDevice.osName = deviceResult.osName
+        otherDevice.networkType = deviceResult.networkType
+        otherDevice.wifiName = deviceResult.wifiName
+        save(otherDevice)
+        return otherDevice
+    } else {
+        return null
     }
 }

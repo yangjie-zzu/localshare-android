@@ -5,6 +5,9 @@ import OnEvent
 import android.content.ContentValues
 import android.content.Intent
 import android.net.Uri
+import android.net.nsd.NsdManager
+import android.net.nsd.NsdServiceInfo
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -15,12 +18,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.content.getSystemService
 import androidx.documentfile.provider.DocumentFile
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.pages.getLocalIp
 import com.freefjay.localshare.util.downloadMessageFile
+import com.freefjay.localshare.util.exchangeDevice
 import com.freefjay.localshare.util.getFileNameAndType
 import com.freefjay.localshare.util.queryFile
 import com.freefjay.localshare.util.queryList
@@ -49,11 +54,18 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.core.isEmpty
 import io.ktor.utils.io.core.readBytes
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
+import java.net.InetAddress
 import java.util.Date
+import javax.jmdns.JmDNS
+import javax.jmdns.ServiceEvent
+import javax.jmdns.ServiceInfo
+import javax.jmdns.ServiceListener
 import kotlin.collections.firstOrNull
 
 
@@ -171,4 +183,95 @@ fun OnDownloadProgressEvent(block: (data: FileProgress) -> Unit) {
             processTime = Date()
         }
     })
+}
+
+const val serviceType = "_share._tcp"
+var nsdManager: NsdManager? = null
+
+val multicastLock = run {
+    val wifiManager = globalActivity.getSystemService<WifiManager>()
+    val lock = wifiManager?.createMulticastLock("mDns-lock")
+    lock?.setReferenceCounted(true)
+    lock
+}
+
+val registrationListener = object : NsdManager.RegistrationListener {
+    override fun onRegistrationFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
+        Log.i(TAG, "onRegistrationFailed: ${serviceInfo?.serviceType}, ${serviceInfo?.serviceName}")
+    }
+
+    override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
+        Log.i(TAG, "onUnregistrationFailed: ${serviceInfo?.serviceType}, ${serviceInfo?.serviceName}")
+    }
+
+    override fun onServiceRegistered(serviceInfo: NsdServiceInfo?) {
+        Log.i(TAG, "onServiceRegistered: ${serviceInfo?.serviceType}, ${serviceInfo?.serviceName}")
+    }
+
+    override fun onServiceUnregistered(serviceInfo: NsdServiceInfo?) {
+        Log.i(TAG, "onServiceUnregistered: ${serviceInfo?.serviceType}, ${serviceInfo?.serviceName}")
+    }
+}
+val resolveListener = object : NsdManager.ResolveListener {
+    override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
+        Log.i(TAG, "onResolveFailed: ${serviceInfo?.serviceName}, ${serviceInfo?.serviceType}, ${errorCode}")
+    }
+
+    override fun onServiceResolved(serviceInfo: NsdServiceInfo?) {
+        Log.i(TAG, "onServiceResolved: ${serviceInfo?.serviceName}, ${serviceInfo?.serviceType}")
+        val ip = serviceInfo?.host?.hostAddress
+        val port = serviceInfo?.port
+        Log.i(TAG, "onServiceResolved: ${ip}, ${port}")
+        CoroutineScope(Dispatchers.IO).launch {
+            exchangeDevice(ip, port)
+        }
+    }
+}
+val discoveryListener = object : NsdManager.DiscoveryListener {
+    override fun onStartDiscoveryFailed(serviceType: String?, errorCode: Int) {
+        Log.i(TAG, "onStartDiscoveryFailed: ${serviceType}, ${errorCode}")
+        multicastLock?.release()
+    }
+
+    override fun onStopDiscoveryFailed(serviceType: String?, errorCode: Int) {
+        Log.i(TAG, "onStopDiscoveryFailed: ${serviceType}, ${errorCode}")
+        nsdManager?.stopServiceDiscovery(this)
+        multicastLock?.release()
+    }
+
+    override fun onDiscoveryStarted(serviceType: String?) {
+        Log.i(TAG, "onDiscoveryStarted: ${serviceType}")
+    }
+
+    override fun onDiscoveryStopped(serviceType: String?) {
+        Log.i(TAG, "onDiscoveryStopped: ${serviceType}")
+        multicastLock?.release()
+    }
+
+    override fun onServiceFound(serviceInfo: NsdServiceInfo?) {
+        Log.i(TAG, "发现设备: ${serviceInfo?.serviceType}, ${serviceInfo?.serviceName}")
+        if (serviceInfo?.serviceType == "${serviceType}." && serviceInfo.serviceName != getDevice().clientCode) {
+            Log.i(TAG, "解析")
+            nsdManager?.resolveService(serviceInfo, resolveListener)
+        }
+    }
+
+    override fun onServiceLost(serviceInfo: NsdServiceInfo?) {
+        Log.i(TAG, "onServiceLost: ${serviceInfo?.serviceType}, ${serviceInfo?.serviceName}")
+    }
+}
+
+fun startNsd() {
+    CoroutineScope(Dispatchers.IO).launch {
+        val device = getDevice()
+        val httpPort = device.port ?: return@launch
+        nsdManager = globalActivity.getSystemService()
+        val serviceInfo = NsdServiceInfo()
+        serviceInfo.serviceType = serviceType
+        serviceInfo.serviceName = device.clientCode
+        serviceInfo.port = httpPort
+        multicastLock?.acquire()
+        nsdManager?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
+        nsdManager?.discoverServices(serviceType, NsdManager.PROTOCOL_DNS_SD, discoveryListener)
+    }
 }

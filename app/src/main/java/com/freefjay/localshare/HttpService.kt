@@ -17,6 +17,7 @@ class HttpService : Service() {
         super.onCreate()
         Log.i(TAG, "创建service")
         httpService.start()
+        startNsd()
         CoroutineScope(Dispatchers.IO).launch {
             while (true) {
                 delay(1000)

@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
                     }
                     sysInfo.value
                 }
+                globalActivity.startService(Intent(globalActivity, HttpService::class.java))
                 init = true
             })
 
@@ -122,7 +123,16 @@ class MainActivity : ComponentActivity() {
             })
         }
         registerFilePickerLauncher()
-        globalActivity.startService(Intent(globalActivity, HttpService::class.java))
+    }
+
+    override fun onStop() {
+        Log.i(TAG, "MainActivity停止")
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        Log.i(TAG, "MainActivity退出")
+        super.onDestroy()
     }
 }
 

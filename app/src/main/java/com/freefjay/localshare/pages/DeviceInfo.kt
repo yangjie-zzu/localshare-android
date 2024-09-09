@@ -48,6 +48,7 @@ import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.httpClient
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.util.delete
+import com.freefjay.localshare.util.exchangeDevice
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.save
 import com.google.gson.Gson
@@ -223,28 +224,8 @@ fun DeviceInfo(
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
                             formInstance.validate()
-                            val response = httpClient.post("http://${ip.value}:${port.value}/exchange") {
-                                setBody(Gson().toJson(getDevice()))
-                                contentType(ContentType.Application.Json)
-                            }
-                            Log.i(TAG, "status: ${response.status}")
-                            if (response.status == HttpStatusCode.OK) {
-                                val body = response.body<String>()
-                                Log.i(TAG, "body: $body")
-                                val deviceResult = Gson().fromJson(body, Device::class.java)
-                                var otherDevice = queryList<Device>("select * from device where client_id = '${deviceResult.clientCode}'").firstOrNull()
-                                if (otherDevice == null) {
-                                    otherDevice = Device()
-                                }
-                                otherDevice.clientCode = deviceResult.clientCode
-                                otherDevice.name = deviceResult.name
-                                otherDevice.ip = deviceResult.ip
-                                otherDevice.port = deviceResult.port
-                                otherDevice.channelType = deviceResult.channelType
-                                otherDevice.osName = deviceResult.osName
-                                otherDevice.networkType = deviceResult.networkType
-                                otherDevice.wifiName = deviceResult.wifiName
-                                save(otherDevice)
+                            val otherDevice = exchangeDevice(ip = ip.value, port = port.value)
+                            if (otherDevice != null) {
                                 queryDevice(otherDevice.id)
                                 onSaveAfter?.invoke(otherDevice)
                             }
