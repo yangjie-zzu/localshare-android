@@ -68,13 +68,14 @@ import javax.jmdns.ServiceInfo
 import javax.jmdns.ServiceListener
 import kotlin.collections.firstOrNull
 
+var port = 20000
 
 fun getDevice(): Device {
     val device = Device()
     device.clientCode = clientCode
     device.name = "${Build.BRAND} ${Build.MODEL}"
     device.ip = getLocalIp()
-    device.port = 20000
+    device.port = port
     device.channelType = "app"
     device.osName = "android"
     return device
@@ -87,7 +88,7 @@ val deviceMessageDownloadEvent = Event<FileProgress>()
 fun createServer(): NettyApplicationEngine {
     return embeddedServer(Netty, applicationEngineEnvironment {
         connector {
-            port = 20000
+            port = port
         }
         module {
             routing {
