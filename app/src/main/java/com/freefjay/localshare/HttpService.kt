@@ -20,7 +20,7 @@ class HttpService : Service() {
         startNsd()
         CoroutineScope(Dispatchers.IO).launch {
             while (true) {
-                delay(1000)
+                delay(5000)
                 Log.i(TAG, "HttpService运行检测")
             }
         }

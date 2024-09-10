@@ -12,9 +12,12 @@ import androidx.core.database.getFloatOrNull
 import androidx.core.database.getIntOrNull
 import androidx.core.database.getLongOrNull
 import androidx.core.database.getStringOrNull
+import androidx.core.database.sqlite.transaction
 import com.freefjay.localshare.TAG
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import util.taskQueue
+import util.threadLocalQueueFlag
 import java.lang.reflect.Type
 import java.math.BigDecimal
 import java.util.Date
@@ -68,6 +71,25 @@ fun getSqliteType(clazz: Type?): String? {
 }
 
 lateinit var db: DbOpenHelper
+
+suspend fun <T> transaction(name: String? = null, block: suspend () -> T): T {
+    val isSub = threadLocalQueueFlag.get() == true
+    return taskQueue.execute {
+        val flag = threadLocalQueueFlag.get()
+        try {
+            Log.i(TAG, "------------------- 开始${if (isSub) "子" else "" }事务${name?.let { s -> "-${s}-" } ?: ""}(${Thread.currentThread().id}) ------------------------")
+            if (flag == true) {
+                block()
+            } else {
+                db.writableDatabase.transaction {
+                    block()
+                }
+            }
+        } finally {
+            Log.i(TAG, "------------------- 结束${if (isSub) "子" else "" }事务${name?.let { s -> "-${s}-" } ?: ""}(${Thread.currentThread().id}) ------------------------")
+        }
+    }
+}
 
 suspend fun queryMap(sql: String?, args: Array<String>? = null): List<Map<String, Any?>> {
     return suspendCoroutine { continuation ->
@@ -272,7 +294,7 @@ suspend inline fun <T : Any> updateTableStruct(kClazz: KClass<T>) {
     Log.i(TAG, "updateTableStruct: ${oldTable}")
     if (oldTable == null) {
         val sql = """
-                    create table ${tableInfo.name}(${tableInfo.columns?.joinToString(", ") { "${it.name} ${it.type}${if (it.isPrimaryKey == true) " primary key" else ""}" }})
+                    create table ${tableInfo.name}(${tableInfo.columns?.joinToString(", ") { "${it.name} ${it.type}${if (it.isPrimaryKey == true) " primary key AUTOINCREMENT " else ""}" }})
                 """.trimIndent()
         Log.i(TAG, "建表sql: $sql")
         executeSql(sql)

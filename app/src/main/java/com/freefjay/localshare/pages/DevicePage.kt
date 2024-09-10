@@ -1,7 +1,7 @@
 package com.freefjay.localshare.pages
 
 import OnEvent
-import android.widget.TextView
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Card
@@ -22,8 +21,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -32,13 +34,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import com.freefjay.localshare.R
+import com.freefjay.localshare.TAG
 import com.freefjay.localshare.component.DropdownMenu
 import com.freefjay.localshare.component.Page
 import com.freefjay.localshare.component.Route
 import com.freefjay.localshare.component.Title
-import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.util.queryList
@@ -50,23 +51,23 @@ import kotlinx.coroutines.launch
 @Composable
 fun DevicePage() {
 
-    val devices = remember {
-        mutableStateListOf<Device>()
+    var devices by remember {
+        mutableStateOf<List<Device>>(listOf())
     }
 
-    suspend fun requestDevice() {
-        val list: List<Device> = queryList("select * from device")
-        devices.clear()
-        devices.addAll(list)
+    suspend fun queryDevices() {
+        val list = queryList<Device>("select * from device")
+        Log.i(TAG, "deviceIds: ${list.joinToString { "${it.id}" }}")
+        devices = list
     }
 
     LaunchedEffect(key1 = Unit, block = {
-        requestDevice()
+        queryDevices()
     })
 
     OnEvent(event = deviceEvent) {
         CoroutineScope(Dispatchers.IO).launch {
-            requestDevice()
+            queryDevices()
         }
     }
 
@@ -87,7 +88,7 @@ fun DevicePage() {
                                             DeviceInfo(
                                                 onSaveAfter = {
                                                     CoroutineScope(Dispatchers.IO).launch {
-                                                        requestDevice()
+                                                        queryDevices()
                                                     }
                                                 }
                                             )
@@ -115,7 +116,7 @@ fun DevicePage() {
             ) {
                 itemsIndexed(
                     items = devices,
-                    key = {_, item ->  item.clientCode ?: ""}
+                    key = {_, item ->  item.id ?: ""}
                 ) {_, item ->
                     Card {
                         Row(
@@ -157,12 +158,12 @@ fun DevicePage() {
                                                     id = item.id,
                                                     onSaveAfter = {
                                                         CoroutineScope(Dispatchers.IO).launch {
-                                                            requestDevice()
+                                                            queryDevices()
                                                         }
                                                     },
                                                     onDeleteAfter = {
                                                         CoroutineScope(Dispatchers.IO).launch {
-                                                            requestDevice()
+                                                            queryDevices()
                                                         }
                                                     }
                                                 )

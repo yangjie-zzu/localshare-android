@@ -72,10 +72,10 @@ class MainActivity : ComponentActivity() {
                 }
                 Log.i(TAG, "表结构同步成功")
                 clientCode = run {
-                    var sysInfo = queryOne<SysInfo>("select * from sys_info where name = 'client_id'")
+                    var sysInfo = queryOne<SysInfo>("select * from sys_info where name = 'client_code'")
                     if (sysInfo == null) {
                         sysInfo = SysInfo(
-                            name = "client_id",
+                            name = "client_code",
                             value = UUID.randomUUID().toString()
                         )
                         save(sysInfo)

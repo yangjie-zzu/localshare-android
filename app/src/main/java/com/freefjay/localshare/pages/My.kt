@@ -39,7 +39,7 @@ fun My() {
         self = getDevice()
     }
 
-    val url = "http://${self.ip}:${self.port}/exchange"
+    val url = "http://${self.ip}:${self.port}/code"
 
     Page(title = {
         Title {

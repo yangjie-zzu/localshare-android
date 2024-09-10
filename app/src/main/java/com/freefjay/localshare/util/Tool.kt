@@ -23,6 +23,7 @@ import androidx.core.database.getBlobOrNull
 import androidx.core.database.getFloatOrNull
 import androidx.core.database.getIntOrNull
 import androidx.core.database.getStringOrNull
+import androidx.core.database.sqlite.transaction
 import com.freefjay.localshare.FileProgress
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.deviceMessageDownloadEvent
@@ -32,6 +33,7 @@ import com.freefjay.localshare.httpClient
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.google.gson.Gson
+import deviceEvent
 import deviceMessageEvent
 import io.ktor.client.call.body
 import io.ktor.client.request.post
@@ -44,8 +46,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.utils.io.core.isEmpty
 import io.ktor.utils.io.core.readBytes
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Date
@@ -259,33 +263,41 @@ suspend fun downloadMessageFile(device: Device?, deviceMessage: DeviceMessage) {
 }
 
 suspend fun exchangeDevice(ip: String?, port: Int?): Device? {
-    if (ip == null || port == null) {
-        return null
-    }
-    val response = httpClient.post("http://${ip}:${port}/exchange") {
-        setBody(Gson().toJson(getDevice()))
-        contentType(ContentType.Application.Json)
-    }
-    Log.i(TAG, "status: ${response.status}")
-    if (response.status == HttpStatusCode.OK) {
-        val body = response.body<String>()
-        Log.i(TAG, "body: $body")
-        val deviceResult = Gson().fromJson(body, Device::class.java)
-        var otherDevice = queryList<Device>("select * from device where client_id = '${deviceResult.clientCode}'").firstOrNull()
-        if (otherDevice == null) {
-            otherDevice = Device()
+    return transaction {
+        if (ip == null || port == null) {
+            return@transaction null
         }
-        otherDevice.clientCode = deviceResult.clientCode
-        otherDevice.name = deviceResult.name
-        otherDevice.ip = deviceResult.ip
-        otherDevice.port = deviceResult.port
-        otherDevice.channelType = deviceResult.channelType
-        otherDevice.osName = deviceResult.osName
-        otherDevice.networkType = deviceResult.networkType
-        otherDevice.wifiName = deviceResult.wifiName
-        save(otherDevice)
-        return otherDevice
-    } else {
-        return null
+        val response = httpClient.post("http://${ip}:${port}/exchange") {
+            setBody(Gson().toJson(getDevice()))
+            contentType(ContentType.Application.Json)
+        }
+        Log.i(TAG, "status: ${response.status}")
+        if (response.status == HttpStatusCode.OK) {
+            val body = response.body<String>()
+            Log.i(TAG, "body: $body")
+            val deviceResult = Gson().fromJson(body, Device::class.java)
+            var otherDevice = queryList<Device>("select * from device where client_code = '${deviceResult.clientCode}'").firstOrNull()
+            if (otherDevice == null) {
+                Log.i(TAG, "exchangeDevice: 新设备")
+                otherDevice = Device()
+            } else {
+                Log.i(TAG, "exchangeDevice: 设备已存在")
+            }
+            otherDevice.clientCode = deviceResult.clientCode
+            otherDevice.name = deviceResult.name
+            otherDevice.ip = deviceResult.ip
+            otherDevice.port = deviceResult.port
+            otherDevice.channelType = deviceResult.channelType
+            otherDevice.osName = deviceResult.osName
+            otherDevice.networkType = deviceResult.networkType
+            otherDevice.wifiName = deviceResult.wifiName
+            save(otherDevice)
+            CoroutineScope(Dispatchers.Default).launch {
+                deviceEvent.doAction(Unit)
+            }
+            return@transaction otherDevice
+        } else {
+            return@transaction null
+        }
     }
 }

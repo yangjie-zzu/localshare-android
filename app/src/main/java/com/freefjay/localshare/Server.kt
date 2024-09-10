@@ -68,14 +68,14 @@ import javax.jmdns.ServiceInfo
 import javax.jmdns.ServiceListener
 import kotlin.collections.firstOrNull
 
-var port = 20000
+var serverPort = 20000
 
 fun getDevice(): Device {
     val device = Device()
     device.clientCode = clientCode
     device.name = "${Build.BRAND} ${Build.MODEL}"
     device.ip = getLocalIp()
-    device.port = port
+    device.port = serverPort
     device.channelType = "app"
     device.osName = "android"
     return device
@@ -88,14 +88,18 @@ val deviceMessageDownloadEvent = Event<FileProgress>()
 fun createServer(): NettyApplicationEngine {
     return embeddedServer(Netty, applicationEngineEnvironment {
         connector {
-            port = port
+            port = serverPort
         }
         module {
             routing {
+                get("/code") {
+
+                }
                 post("/exchange") {
+                    Log.i(TAG, "/exchange")
                     val body = call.receiveText()
                     val (_, clientCode, name, ip, port, channelType, osName, networkType, wifiName) = Gson().fromJson(body, Device::class.java)
-                    var otherDevice = queryList<Device>("select * from device where client_id = '${clientCode}'").firstOrNull()
+                    var otherDevice = queryList<Device>("select * from device where client_code = '${clientCode}'").firstOrNull()
                     if (otherDevice == null) {
                         otherDevice = Device()
                     }
@@ -189,7 +193,7 @@ fun OnDownloadProgressEvent(block: (data: FileProgress) -> Unit) {
 const val serviceType = "_share._tcp"
 var nsdManager: NsdManager? = null
 
-val multicastLock = run {
+val multicastLock by lazy {
     val wifiManager = globalActivity.getSystemService<WifiManager>()
     val lock = wifiManager?.createMulticastLock("mDns-lock")
     lock?.setReferenceCounted(true)
@@ -219,12 +223,15 @@ val resolveListener = object : NsdManager.ResolveListener {
     }
 
     override fun onServiceResolved(serviceInfo: NsdServiceInfo?) {
-        Log.i(TAG, "onServiceResolved: ${serviceInfo?.serviceName}, ${serviceInfo?.serviceType}")
+        Log.i(TAG, "解析设备: ${serviceInfo?.serviceName}, ${serviceInfo?.serviceType}")
         val ip = serviceInfo?.host?.hostAddress
         val port = serviceInfo?.port
-        Log.i(TAG, "onServiceResolved: ${ip}, ${port}")
-        CoroutineScope(Dispatchers.IO).launch {
-            exchangeDevice(ip, port)
+        Log.i(TAG, "解析ip: ${ip}, ${port}")
+        if (serviceInfo?.serviceType == ".${serviceType}" && serviceInfo.serviceName != getDevice().clientCode) {
+            Log.i(TAG, "添加设备")
+            CoroutineScope(Dispatchers.IO).launch {
+                exchangeDevice(ip, port)
+            }
         }
     }
 }
