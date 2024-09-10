@@ -26,6 +26,7 @@ import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.pages.getLocalIp
 import com.freefjay.localshare.util.downloadMessageFile
 import com.freefjay.localshare.util.exchangeDevice
+import com.freefjay.localshare.util.getFileInfo
 import com.freefjay.localshare.util.getFileNameAndType
 import com.freefjay.localshare.util.queryFile
 import com.freefjay.localshare.util.queryList
@@ -64,6 +65,7 @@ import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
 import java.net.InetAddress
 import java.util.Date
+import java.util.Timer
 import javax.jmdns.JmDNS
 import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceInfo
@@ -84,8 +86,6 @@ fun getDevice(): Device {
 }
 
 class FileProgress(val messageId: Long?, val handleSize: Long, val totalSize: Long)
-
-val deviceMessageDownloadEvent = Event<FileProgress>()
 
 fun createServer(): NettyApplicationEngine {
     return embeddedServer(Netty, applicationEngineEnvironment {
@@ -173,21 +173,6 @@ fun createServer(): NettyApplicationEngine {
                     }
                 }
             }
-        }
-    })
-}
-
-@Composable
-fun OnDownloadProgressEvent(block: (data: FileProgress) -> Unit) {
-
-    var processTime by remember {
-        mutableStateOf(Date())
-    }
-
-    OnEvent(event = deviceMessageDownloadEvent, block = {
-        if (Date().time - processTime.time > 1000 || (it.handleSize >= it.totalSize)) {
-            block(it)
-            processTime = Date()
         }
     })
 }

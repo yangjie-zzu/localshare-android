@@ -22,11 +22,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.freefjay.localshare.FileProgress
-import com.freefjay.localshare.OnDownloadProgressEvent
 import com.freefjay.localshare.component.Page
 import com.freefjay.localshare.component.Title
-import com.freefjay.localshare.deviceMessageDownloadEvent
 import com.freefjay.localshare.model.DeviceMessage
+import com.freefjay.localshare.util.OnTimer
+import com.freefjay.localshare.util.fileProgresses
 import com.freefjay.localshare.util.format
 import com.freefjay.localshare.util.friendly
 import com.freefjay.localshare.util.openFile
@@ -42,23 +42,24 @@ fun DeviceMessageDetail(
         mutableStateOf<DeviceMessage?>(null)
     }
 
+    var fileProgress by remember {
+        mutableStateOf<FileProgress?>(null)
+    }
+
     suspend fun queryMessage(id: Long?) {
         deviceMessage = id?.let { queryById(id) }
+        fileProgress = null
     }
 
     LaunchedEffect(id) {
         queryMessage(id)
     }
 
-    var fileProgress by remember {
-        mutableStateOf<FileProgress?>(null)
+    if (deviceMessage?.downloadSuccess != true) {
+        OnTimer(block = {
+            fileProgress = fileProgresses[deviceMessage?.id]
+        })
     }
-
-    OnDownloadProgressEvent(block = {
-        if (it.messageId == deviceMessage?.id) {
-            fileProgress = it
-        }
-    })
 
     Page(title = {
         Title {
@@ -66,7 +67,9 @@ fun DeviceMessageDetail(
         }
     }) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -85,13 +88,7 @@ fun DeviceMessageDetail(
                         Text(text = buildAnnotatedString {
                             this.append("文件大小：")
                             if (deviceMessage?.type == "receive") {
-                                fileProgress.let {
-                                    if (it != null) {
-                                        this.append("${readableFileSize(it.handleSize)}/${readableFileSize(it.totalSize)}")
-                                    } else {
-                                        this.append("${readableFileSize(deviceMessage?.downloadSize)}/${readableFileSize(deviceMessage?.size)}")
-                                    }
-                                }
+                                this.append("${readableFileSize(fileProgress?.handleSize ?: deviceMessage?.downloadSize ?: 0)}/${readableFileSize(fileProgress?.totalSize ?: deviceMessage?.size ?: 0)}")
                             }
                             if (deviceMessage?.type == "send") {
                                 this.append("${readableFileSize(deviceMessage?.size)}")

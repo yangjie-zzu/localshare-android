@@ -21,6 +21,15 @@ class TaskQueue(
         }
     }
 
+    fun submit(
+        context: CoroutineContext = EmptyCoroutineContext,
+        block: suspend () -> Unit) {
+        val job = scope.launch(context = context + threadLocalQueueFlag.asContextElement(true), start = CoroutineStart.LAZY) {
+            block()
+        }
+        queue.trySend(job)
+    }
+
     suspend fun <T> execute(
         context: CoroutineContext = EmptyCoroutineContext,
         block: suspend () -> T
@@ -31,10 +40,9 @@ class TaskQueue(
             block()
         } else {
             suspendCoroutine {
-                val job = scope.launch(context = context + threadLocalQueueFlag.asContextElement(true), start = CoroutineStart.LAZY) {
+                this.submit(context) {
                     it.resume(block())
                 }
-                queue.trySend(job)
             }
         }
     }

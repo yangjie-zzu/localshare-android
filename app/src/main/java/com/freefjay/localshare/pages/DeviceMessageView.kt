@@ -33,6 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -59,8 +60,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import com.freefjay.localshare.FileProgress
-import com.freefjay.localshare.OnDownloadProgressEvent
 import com.freefjay.localshare.R
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.clientCode
@@ -74,8 +77,10 @@ import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.util.FileInfo
+import com.freefjay.localshare.util.OnTimer
 import com.freefjay.localshare.util.delete
 import com.freefjay.localshare.util.downloadMessageFile
+import com.freefjay.localshare.util.fileProgresses
 import com.freefjay.localshare.util.format
 import com.freefjay.localshare.util.friendly
 import com.freefjay.localshare.util.getFileInfo
@@ -94,8 +99,12 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Date
+import java.util.Timer
+import java.util.TimerTask
 
 lateinit var filePickerLauncher: ActivityResultLauncher<Array<String>>
 
@@ -121,12 +130,16 @@ fun DeviceMessageView(
 ) {
     val currentCoroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val deviceMessages = remember {
-        mutableStateListOf<DeviceMessage>()
+    var deviceMessages by remember {
+        mutableStateOf<List<DeviceMessage>>(listOf())
     }
 
     var device by remember {
         mutableStateOf<Device?>(null)
+    }
+
+    var fileProgressMap by remember {
+        mutableStateOf<Map<Long?, FileProgress?>?>(null)
     }
 
     suspend fun queryDevice(deviceId: Long?) {
@@ -138,10 +151,8 @@ fun DeviceMessageView(
         val oldSize = deviceMessages.size
         val list =
             if (deviceId == null) null else queryList<DeviceMessage>("select * from device_message where device_id = $deviceId")
-        deviceMessages.clear()
-        if (list != null) {
-            deviceMessages.addAll(list)
-        }
+        deviceMessages = list ?: listOf()
+        fileProgressMap = null
         if (scrollToBottom) {
             val size = deviceMessages.size
             if (size > oldSize) {
@@ -166,13 +177,14 @@ fun DeviceMessageView(
         }
     }
 
-    val fileProgressMap = remember {
-        mutableStateMapOf<Long?, FileProgress?>()
+    if (deviceMessages.any { it.type == "receive" && it.downloadSuccess != true }) {
+        Log.i(TAG, "定时任务")
+        OnTimer(block = {
+            fileProgressMap = mutableMapOf<Long?, FileProgress?>().also {
+                it.putAll(fileProgresses)
+            }
+        })
     }
-
-    OnDownloadProgressEvent(block = {
-        fileProgressMap[it.messageId] = it
-    })
 
     Page(
         title = {
@@ -233,7 +245,7 @@ fun DeviceMessageView(
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
-                                            val fileProgress = fileProgressMap[it.id]
+                                            val fileProgress = fileProgressMap?.get(it.id)
                                             Text(text = it.filename ?: "")
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
@@ -243,7 +255,7 @@ fun DeviceMessageView(
                                                     if (it.filename != null && it.downloadSuccess != true && fileProgress == null) {
                                                         Image(painter = painterResource(id = R.drawable.download), contentDescription = "",
                                                             modifier = Modifier.clickable {
-                                                                currentCoroutineScope.launch {
+                                                                CoroutineScope(Dispatchers.IO).launch {
                                                                     downloadMessageFile(device, it)
                                                                 }
                                                             }
@@ -258,7 +270,7 @@ fun DeviceMessageView(
                                                     }
                                                 }
                                                 Text(
-                                                    text = "${fileProgress?.let { fileProgress ->  "${readableFileSize(fileProgress.handleSize)}/" } ?: ""}${readableFileSize(fileProgress?.totalSize ?: it.size)}",
+                                                    text = "${readableFileSize(fileProgress?.handleSize ?: it.downloadSize ?: 0)}/${readableFileSize(fileProgress?.totalSize ?: it.size ?: 0)}",
                                                     fontWeight = FontWeight.Light, fontSize = 14.sp
                                                 )
                                             }
@@ -299,7 +311,6 @@ fun DeviceMessageView(
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
-                                            val progress = fileProgressMap[it.id]
                                             Text(text = buildAnnotatedString {
                                                 if (it.filename != null) {
                                                     append(it.filename)
