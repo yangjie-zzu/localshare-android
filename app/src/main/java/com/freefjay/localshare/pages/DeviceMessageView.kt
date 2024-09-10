@@ -462,8 +462,10 @@ fun DeviceMessageView(
                             )))
                             contentType(ContentType.Application.Json)
                         }
+                        Log.i(TAG, "接收到回复: ${response.status}")
                         if (response.status == HttpStatusCode.OK) {
                             val body = response.bodyAsText()
+                            Log.i(TAG, "接收到回复body: ${body}")
                             deviceMessage.sendSuccess = true
                             save(deviceMessage)
                         }

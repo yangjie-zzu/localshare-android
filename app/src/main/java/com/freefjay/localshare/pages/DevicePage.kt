@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -76,7 +77,7 @@ fun DevicePage() {
             Title(
                 menu = {
                     DropdownMenu(trigger = {
-                        Icon(painter = rememberVectorPainter(image = Icons.Rounded.MoreVert), contentDescription = "")
+                        Icon(painter = rememberVectorPainter(image = Icons.Rounded.Add), contentDescription = "")
                     }) {close ->
                         Row(
                             modifier = Modifier.clickable {

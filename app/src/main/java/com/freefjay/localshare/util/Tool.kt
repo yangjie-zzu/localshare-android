@@ -36,6 +36,8 @@ import com.google.gson.Gson
 import deviceEvent
 import deviceMessageEvent
 import io.ktor.client.call.body
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.post
 import io.ktor.client.request.prepareGet
 import io.ktor.client.request.setBody
@@ -231,6 +233,9 @@ suspend fun downloadMessageFile(device: Device?, deviceMessage: DeviceMessage) {
         }
         Log.i(TAG, "file: ${file.absolutePath}")
         httpClient.prepareGet("http://${device.ip}:${device.port}/download?messageId=${deviceMessage.oppositeId}") {
+            timeout {
+                requestTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
+            }
         }.execute { response ->
             val contentLength = response.headers[HttpHeaders.ContentLength]?.toLong() ?: 0L
             var downloadSize = 0L
@@ -244,7 +249,6 @@ suspend fun downloadMessageFile(device: Device?, deviceMessage: DeviceMessage) {
                         val bytes = packet.readBytes()
                         file.appendBytes(bytes)
                         downloadSize += bytes.size
-                        Log.i(TAG, "下载进度: ${downloadSize.toDouble()/contentLength}, ${downloadSize}, ${contentLength}")
                         async {
                             deviceMessageDownloadEvent.doAction(FileProgress(messageId = deviceMessage.id, handleSize = downloadSize, totalSize = contentLength))
                         }

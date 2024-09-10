@@ -39,6 +39,7 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.NullBody
 import io.ktor.server.application.call
 import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.connector
@@ -47,6 +48,7 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondNullable
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
@@ -139,7 +141,7 @@ fun createServer(): NettyApplicationEngine {
                         deviceMessageEvent.doAction(deviceMessage)
                         downloadMessageFile(device, deviceMessage)
                     }
-                    call.response.status(HttpStatusCode.OK)
+                    call.respond(NullBody)
                 }
 
                 get("/download") {
@@ -183,7 +185,7 @@ fun OnDownloadProgressEvent(block: (data: FileProgress) -> Unit) {
     }
 
     OnEvent(event = deviceMessageDownloadEvent, block = {
-        if (Date().time - processTime.time > 200 || (it.handleSize >= it.totalSize)) {
+        if (Date().time - processTime.time > 1000 || (it.handleSize >= it.totalSize)) {
             block(it)
             processTime = Date()
         }
