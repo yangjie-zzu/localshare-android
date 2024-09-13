@@ -85,7 +85,7 @@ fun getDevice(): Device {
     return device
 }
 
-class FileProgress(val messageId: Long?, val handleSize: Long, val totalSize: Long)
+class FileProgress(val messageId: Long?, val handleSize: Long)
 
 fun createServer(): NettyApplicationEngine {
     return embeddedServer(Netty, applicationEngineEnvironment {

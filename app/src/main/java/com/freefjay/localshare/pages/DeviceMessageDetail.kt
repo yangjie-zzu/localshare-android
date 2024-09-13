@@ -88,7 +88,7 @@ fun DeviceMessageDetail(
                         Text(text = buildAnnotatedString {
                             this.append("文件大小：")
                             if (deviceMessage?.type == "receive") {
-                                this.append("${readableFileSize(fileProgress?.handleSize ?: deviceMessage?.downloadSize ?: 0)}/${readableFileSize(fileProgress?.totalSize ?: deviceMessage?.size ?: 0)}")
+                                this.append("${readableFileSize(fileProgress?.handleSize ?: deviceMessage?.downloadSize ?: 0)}/${readableFileSize(deviceMessage?.size ?: 0)}")
                             }
                             if (deviceMessage?.type == "send") {
                                 this.append("${readableFileSize(deviceMessage?.size)}")

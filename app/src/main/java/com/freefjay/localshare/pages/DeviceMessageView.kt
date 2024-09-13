@@ -264,13 +264,15 @@ fun DeviceMessageView(
                                                     if (it.downloadSuccess == true) {
                                                         Image(painter = painterResource(id = R.drawable.download_success), contentDescription = "")
                                                     } else if (fileProgress != null) {
-                                                        CircularProgressIndicator(
-                                                            progress = fileProgress.handleSize.toFloat()/fileProgress.totalSize
-                                                        )
+                                                        it.size?.let {size ->
+                                                            CircularProgressIndicator(
+                                                                progress = fileProgress.handleSize.toFloat()/size
+                                                            )
+                                                        }
                                                     }
                                                 }
                                                 Text(
-                                                    text = "${readableFileSize(fileProgress?.handleSize ?: it.downloadSize ?: 0)}/${readableFileSize(fileProgress?.totalSize ?: it.size ?: 0)}",
+                                                    text = "${readableFileSize(fileProgress?.handleSize ?: it.downloadSize ?: 0)}/${readableFileSize(it.size ?: 0)}",
                                                     fontWeight = FontWeight.Light, fontSize = 14.sp
                                                 )
                                             }
