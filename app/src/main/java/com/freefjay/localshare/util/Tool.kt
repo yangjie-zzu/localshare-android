@@ -77,6 +77,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
 import java.io.RandomAccessFile
+import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.Date
 import java.util.concurrent.locks.Lock
@@ -319,66 +320,67 @@ suspend fun downloadMessageFile(device: Device?, deviceMessage: DeviceMessage) {
         }
         try {
             withContext(Dispatchers.IO) {
-                RandomAccessFile(file, "rws").use {
+                val fileChannel = RandomAccessFile(file, "rws").also {
                     it.setLength(totalSize)
-                }
-                (1..concurrentCount).map {
-                    async {
-                        var range = getRange()
-                        while (range != null) {
-                            val start = range.first
-                            val end = range.second
-                            if (filePartMap["${start}-${end}"] == null) {
-                                var subHandleSize = 0L
-                                httpClient.prepareGet("http://${device.ip}:${device.port}/download?messageId=${deviceMessage.oppositeId}") {
-                                    timeout {
-                                        connectTimeoutMillis = 300000
-                                        requestTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
-                                    }
-                                    header("Range", "bytes=${start}-${end}")
-                                }.execute { response ->
-                                    val contentLength = response.headers[HttpHeaders.ContentLength]?.toLong() ?: 0L
-                                    withContext(Dispatchers.IO) {
-                                        val randomAccessFile = RandomAccessFile(file, "rws")
-                                        randomAccessFile.use {
-                                            randomAccessFile.seek(start)
-                                            val channel = response.bodyAsChannel()
-                                            while (!channel.isClosedForRead) {
-                                                val packet =
-                                                    channel.readRemaining(limit = DEFAULT_BUFFER_SIZE.toLong())
-                                                while (!packet.isEmpty) {
-                                                    val bytes = packet.readBytes()
-                                                    randomAccessFile.write(bytes)
-                                                    subHandleSize += bytes.size
-                                                    processSize += bytes.size
-                                                    fileProgresses[deviceMessage.id] = FileProgress(
-                                                        messageId = deviceMessage.id,
-                                                        handleSize = processSize
-                                                    )
+                }.channel
+                fileChannel.use {
+                    (1..concurrentCount).map {
+                        async {
+                            withContext(Dispatchers.IO) {
+                                var range = getRange()
+                                while (range != null) {
+                                    val start = range.first
+                                    val end = range.second
+                                    if (filePartMap["${start}-${end}"] == null) {
+                                        var subHandleSize = 0L
+                                        httpClient.prepareGet("http://${device.ip}:${device.port}/download?messageId=${deviceMessage.oppositeId}") {
+                                            timeout {
+                                                connectTimeoutMillis = 300000
+                                                requestTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
+                                            }
+                                            header("Range", "bytes=${start}-${end}")
+                                        }.execute { response ->
+                                            val contentLength = response.headers[HttpHeaders.ContentLength]?.toLong() ?: 0L
+                                            withContext(Dispatchers.IO) {
+                                                val channel = response.bodyAsChannel()
+                                                while (!channel.isClosedForRead) {
+                                                    val packet =
+                                                        channel.readRemaining(limit = DEFAULT_BUFFER_SIZE.toLong())
+                                                    while (!packet.isEmpty) {
+                                                        val bytes = packet.readBytes()
+                                                        fileChannel.write(ByteBuffer.wrap(bytes), start + subHandleSize)
+                                                        subHandleSize += bytes.size
+                                                        processSize += bytes.size
+                                                        fileProgresses[deviceMessage.id] = FileProgress(
+                                                            messageId = deviceMessage.id,
+                                                            handleSize = processSize
+                                                        )
+                                                    }
+                                                }
+                                                if (subHandleSize != contentLength) {
+                                                    throw RuntimeException("下载失败，流提前结束")
                                                 }
                                             }
                                         }
-                                        if (subHandleSize != contentLength) {
-                                            throw RuntimeException("下载失败，流提前结束")
-                                        }
+                                        fileChannel.force(true)
+                                        downloadSize += subHandleSize
+                                        deviceMessage.downloadSize = downloadSize
+                                        save(deviceMessage)
+                                        save(FilePart(
+                                            deviceMessageId = deviceMessage.id,
+                                            fileHash = downloadInfo.hash,
+                                            start = start,
+                                            end = end
+                                        ))
+                                    } else {
+                                        Log.i(TAG, "已下载: ${start}, ${end}")
                                     }
+                                    range = getRange()
                                 }
-                                downloadSize += subHandleSize
-                                deviceMessage.downloadSize = downloadSize
-                                save(deviceMessage)
-                                save(FilePart(
-                                    deviceMessageId = deviceMessage.id,
-                                    fileHash = downloadInfo.hash,
-                                    start = start,
-                                    end = end
-                                ))
-                            } else {
-                                Log.i(TAG, "已下载: ${start}, ${end}")
                             }
-                            range = getRange()
                         }
-                    }
-                }.awaitAll()
+                    }.awaitAll()
+                }
             }
             val saveHash = withContext(Dispatchers.IO) {
                 FileInputStream(file).use {
