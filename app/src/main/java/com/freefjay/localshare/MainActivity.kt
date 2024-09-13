@@ -27,6 +27,7 @@ import com.freefjay.localshare.component.Router
 import com.freefjay.localshare.component.RouterView
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
+import com.freefjay.localshare.model.FilePart
 import com.freefjay.localshare.model.SysInfo
 import com.freefjay.localshare.pages.Home
 import com.freefjay.localshare.pages.registerFilePickerLauncher
@@ -67,7 +68,7 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(key1 = Unit, block = {
                 Log.i(TAG, "表结构同步开始")
-                listOf(Device::class, DeviceMessage::class, SysInfo::class).forEach {
+                listOf(Device::class, DeviceMessage::class, SysInfo::class, FilePart::class).forEach {
                     updateTableStruct(it)
                 }
                 Log.i(TAG, "表结构同步成功")

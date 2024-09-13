@@ -246,7 +246,9 @@ fun DeviceMessageView(
                                         ) {
                                             Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
                                             val fileProgress = fileProgressMap?.get(it.id)
-                                            Text(text = it.filename ?: "")
+                                            if (it.filename != null) {
+                                                Text(text = it.filename ?: "")
+                                            }
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -313,14 +315,12 @@ fun DeviceMessageView(
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
-                                            Text(text = buildAnnotatedString {
-                                                if (it.filename != null) {
-                                                    append(it.filename)
-                                                }
-                                                withStyle(SpanStyle(fontWeight = FontWeight.Light, fontSize = 14.sp)) {
-                                                    append("\n${readableFileSize(it.size)}")
-                                                }
-                                            })
+                                            if (it.filename != null) {
+                                                Text(text = it.filename ?: "")
+                                            }
+                                            if (it.size != null) {
+                                                Text(text = readableFileSize(it.size)?: "", fontWeight = FontWeight.Light, fontSize = 14.sp)
+                                            }
                                             if (it.content != null) {
                                                 Text(text = it.content ?: "")
                                             }
