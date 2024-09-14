@@ -99,6 +99,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -152,7 +153,6 @@ fun DeviceMessageView(
         val list =
             if (deviceId == null) null else queryList<DeviceMessage>("select * from device_message where device_id = $deviceId")
         deviceMessages = list ?: listOf()
-        fileProgressMap = null
         if (scrollToBottom) {
             val size = deviceMessages.size
             if (size > oldSize) {

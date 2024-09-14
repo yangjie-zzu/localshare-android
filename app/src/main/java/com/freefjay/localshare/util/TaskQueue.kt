@@ -52,6 +52,17 @@ class TaskQueue(
         scope.cancel()
     }
 
+    suspend fun isFinish(): Boolean {
+        var isFinish = true
+        for (job in this.queue) {
+            if (!job.isCompleted) {
+                isFinish = false
+                break
+            }
+        }
+        return isFinish
+    }
+
 }
 
 val taskQueue = TaskQueue()

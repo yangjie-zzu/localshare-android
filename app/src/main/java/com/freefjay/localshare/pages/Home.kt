@@ -37,14 +37,7 @@ fun Home(
                 My()
             }
             if (tabState.activeKey == "setting") {
-                Page(
-                    title = {
-                        Title {
-                            Text(text = "设置")
-                        }
-                    }
-                ) {
-                }
+                SettingsView()
             }
         }
         Box(

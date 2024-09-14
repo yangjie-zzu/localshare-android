@@ -34,6 +34,7 @@ import com.freefjay.localshare.pages.registerFilePickerLauncher
 import com.freefjay.localshare.ui.theme.LocalshareTheme
 import com.freefjay.localshare.util.DbOpenHelper
 import com.freefjay.localshare.util.db
+import com.freefjay.localshare.util.delete
 import com.freefjay.localshare.util.queryOne
 import com.freefjay.localshare.util.save
 import com.freefjay.localshare.util.updateTableStruct
@@ -83,6 +84,7 @@ class MainActivity : ComponentActivity() {
                     }
                     sysInfo.value
                 }
+                delete<SysInfo>(4)
                 globalActivity.startService(Intent(globalActivity, HttpService::class.java))
                 init = true
             })
