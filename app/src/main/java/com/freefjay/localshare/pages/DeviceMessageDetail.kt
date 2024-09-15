@@ -21,10 +21,10 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.freefjay.localshare.FileProgress
 import com.freefjay.localshare.component.Page
 import com.freefjay.localshare.component.Title
 import com.freefjay.localshare.model.DeviceMessage
+import com.freefjay.localshare.util.FileProgress
 import com.freefjay.localshare.util.OnTimer
 import com.freefjay.localshare.util.fileProgresses
 import com.freefjay.localshare.util.format

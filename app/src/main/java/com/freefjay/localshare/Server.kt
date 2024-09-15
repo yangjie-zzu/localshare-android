@@ -1,76 +1,56 @@
 package com.freefjay.localshare
 
-import Event
-import OnEvent
-import android.content.ContentValues
-import android.content.Intent
 import android.net.Uri
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
-import android.provider.MediaStore.MediaColumns
 import android.util.Log
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.core.content.getSystemService
-import androidx.documentfile.provider.DocumentFile
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
+import com.freefjay.localshare.model.DownloadInfo
 import com.freefjay.localshare.pages.getLocalIp
+import com.freefjay.localshare.util.LocalFileInfoContent
 import com.freefjay.localshare.util.downloadMessageFile
 import com.freefjay.localshare.util.exchangeDevice
 import com.freefjay.localshare.util.getFileInfo
-import com.freefjay.localshare.util.getFileNameAndType
-import com.freefjay.localshare.util.queryFile
+import com.freefjay.localshare.util.hash
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.queryOne
 import com.freefjay.localshare.util.save
 import com.google.gson.Gson
 import deviceEvent
 import deviceMessageEvent
-import io.ktor.client.request.prepareGet
-import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.NullBody
 import io.ktor.server.application.call
+import io.ktor.server.application.install
 import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.netty.NettyApplicationEngine
+import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.request.receiveText
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondNullable
-import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import io.ktor.utils.io.core.isEmpty
-import io.ktor.utils.io.core.readBytes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
-import java.net.InetAddress
+import java.net.URLEncoder
 import java.util.Date
-import java.util.Timer
-import javax.jmdns.JmDNS
-import javax.jmdns.ServiceEvent
-import javax.jmdns.ServiceInfo
-import javax.jmdns.ServiceListener
-import kotlin.collections.firstOrNull
 
 var serverPort = 20000
 
@@ -85,14 +65,13 @@ fun getDevice(): Device {
     return device
 }
 
-class FileProgress(val messageId: Long?, val handleSize: Long)
-
 fun createServer(): NettyApplicationEngine {
     return embeddedServer(Netty, applicationEngineEnvironment {
         connector {
             port = serverPort
         }
         module {
+            install(PartialContent)
             routing {
                 get("/code") {
 
@@ -141,11 +120,36 @@ fun createServer(): NettyApplicationEngine {
                         deviceMessageEvent.doAction(deviceMessage)
                         downloadMessageFile(device, deviceMessage)
                     }
-                    call.respond(NullBody)
+                    call.respond(status = HttpStatusCode.OK, message = NullBody)
                 }
 
                 get("/download") {
-                    val messageId = call.parameters.get("messageId")?.toLong()
+                    val messageId = call.parameters["messageId"]?.toLong()
+                    val deviceMessage = queryOne<DeviceMessage>("select * from device_message where id = ${messageId}")
+                    val fileUri = deviceMessage?.fileUri
+                    val uri = Uri.parse(fileUri)
+                    val fileInfo = getFileInfo(uri)
+                    if (fileInfo == null) {
+                        call.respond(status = HttpStatusCode.NotFound, "not found file")
+                    } else {
+                        try {
+                            call.response.header(
+                                HttpHeaders.ContentDisposition,
+                                ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName,
+                                    withContext(Dispatchers.IO) {
+                                        URLEncoder.encode(fileInfo.name ?: "", "UTF-8")
+                                    }).toString()
+                            )
+                            call.respond(LocalFileInfoContent(fileInfo))
+                        } catch (e: FileNotFoundException) {
+                            Log.e(TAG, "FileNotFoundException: ", e)
+                            call.respond(status = HttpStatusCode.NotFound, "not found file")
+                        }
+                    }
+                }
+
+                get("/downloadInfo") {
+                    val messageId = call.parameters["messageId"]?.toLong()
                     val deviceMessage = queryOne<DeviceMessage>("select * from device_message where id = ${messageId}")
                     val fileUri = deviceMessage?.fileUri
                     if (fileUri == null) {
@@ -153,17 +157,13 @@ fun createServer(): NettyApplicationEngine {
                     } else {
                         try {
                             globalActivity.contentResolver.openInputStream(Uri.parse(fileUri))?.use {
-                                call.respondOutputStream(
-                                    contentLength = it.available().toLong()
-                                ) {
-                                    val out = this
-                                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                                    var n: Int
-                                    withContext(Dispatchers.IO) {
-                                        while (it.read(buffer).also { n = it } > 0) {
-                                            out.write(buffer, 0, n)
-                                        }
-                                    }
+                                call.respondText(contentType = ContentType.Application.Json) {
+                                    Gson().toJson(DownloadInfo(
+                                        size = withContext(Dispatchers.IO) {
+                                            it.available()
+                                        }.toLong(),
+                                        hash = hash(it)
+                                    ))
                                 }
                             }
                         } catch (e: FileNotFoundException) {

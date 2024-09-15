@@ -35,7 +35,6 @@ import androidx.core.database.getStringOrNull
 import androidx.core.database.sqlite.transaction
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import com.freefjay.localshare.FileProgress
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.getDevice
 import com.freefjay.localshare.globalActivity
@@ -44,6 +43,7 @@ import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DownloadInfo
 import com.freefjay.localshare.model.FilePart
+import com.freefjay.localshare.model.SysInfo
 import com.google.gson.Gson
 import deviceEvent
 import deviceMessageEvent
@@ -88,12 +88,14 @@ import kotlin.math.ceil
 import kotlin.math.min
 
 data class FileInfo(
-    val uri: Uri?,
+    val uri: Uri,
     val path: String?,
     val name: String?,
-    val size: Int?
+    val size: Long?,
+    val lastModified: Long?
 )
 
+@OptIn(ExperimentalStdlibApi::class)
 fun getFileInfo(uri: Uri?): FileInfo? {
     if (uri == null) {
         return null
@@ -101,11 +103,15 @@ fun getFileInfo(uri: Uri?): FileInfo? {
     val cursor = globalActivity.contentResolver.query(uri, null, null, null, null)
     cursor?.use {
         if (cursor.moveToFirst()) {
+            (0..<cursor.columnCount).forEach {
+                Log.i(TAG, "${cursor.getColumnName(it)}(${cursor.getType(it)}): ${cursor.getStringOrNull(it)}")
+            }
             return FileInfo(
                 uri = uri,
                 path = cursor.getColumnIndex(FileColumns.DATA).let { if (it == -1) null else cursor.getString(it) },
                 name = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).let { if (it == -1) null else cursor.getString(it) },
-                size = cursor.getColumnIndex(OpenableColumns.SIZE).let { if (it == -1) null else cursor.getInt(it) }
+                size = cursor.getColumnIndex(OpenableColumns.SIZE).let { if (it == -1) null else cursor.getLong(it) },
+                lastModified = cursor.getColumnIndex("last_modified").let { if (it == -1) null else cursor.getLong(it) }
             )
         }
     }
@@ -253,6 +259,8 @@ fun getFileNameAndType(filename: String?): Array<String?>? {
     return arrayOf(if (index > -1) filename.substring(0, index) else filename, if (index > -1) filename.substring(index + 1) else null)
 }
 
+class FileProgress(val messageId: Long?, val handleSize: Long)
+
 val fileProgresses = mutableMapOf<Long?, FileProgress?>()
 val fileProgressMutex = Mutex()
 
@@ -326,8 +334,10 @@ suspend fun downloadMessageFile(device: Device?, deviceMessage: DeviceMessage) {
             val startTime = Date()
             var processSize = downloadSize
             var handleSize = 0L
-            val chunkSize = 10 * 1024 * 1024L
-            val concurrentCount = 10
+            val chunkSize = queryOne<SysInfo>("select * from sys_info where name = 'chunkSize'")?.value?.toLong()
+                ?: (10 * 1024 * 1024L)
+            val concurrentCount = queryOne<SysInfo>("select * from sys_info where name = 'concurrentCount'")?.value?.toLong()
+                ?: 10
             val fileParts = queryList<FilePart>("select * from file_part where device_message_id = ${deviceMessage.id} and file_hash = '${downloadInfo.hash}'")
             val filePartMap = fileParts.groupBy { "${it.start}-${it.end}" }
             val mutex = Mutex()
@@ -412,9 +422,6 @@ suspend fun downloadMessageFile(device: Device?, deviceMessage: DeviceMessage) {
                         }
                     }.awaitAll()
                 }
-//                while (processTask.isFinish() && downloadSaveTask.isFinish()) {
-//                    delay(200)
-//                }
             }
             val saveHash = withContext(Dispatchers.IO) {
                 FileInputStream(file).use {

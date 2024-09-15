@@ -63,7 +63,6 @@ import androidx.compose.ui.window.Popup
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import com.freefjay.localshare.FileProgress
 import com.freefjay.localshare.R
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.clientCode
@@ -77,6 +76,7 @@ import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.util.FileInfo
+import com.freefjay.localshare.util.FileProgress
 import com.freefjay.localshare.util.OnTimer
 import com.freefjay.localshare.util.delete
 import com.freefjay.localshare.util.downloadMessageFile
