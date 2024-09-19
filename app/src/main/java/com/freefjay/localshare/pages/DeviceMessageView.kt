@@ -274,7 +274,7 @@ fun DeviceMessageView(
                                                     }
                                                 }
                                                 Text(
-                                                    text = "${readableFileSize(fileProgress?.handleSize ?: it.downloadSize ?: 0)}/${readableFileSize(it.size ?: 0)}",
+                                                    text = "${readableFileSize((if (it.downloadSuccess == true) it.downloadSize else (fileProgress?.handleSize ?: it.downloadSize)) ?: 0)}/${readableFileSize(it.size ?: 0)}",
                                                     fontWeight = FontWeight.Light, fontSize = 14.sp
                                                 )
                                             }

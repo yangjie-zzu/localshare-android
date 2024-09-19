@@ -84,7 +84,6 @@ class MainActivity : ComponentActivity() {
                     }
                     sysInfo.value
                 }
-                delete<SysInfo>(4)
                 globalActivity.startService(Intent(globalActivity, HttpService::class.java))
                 init = true
             })

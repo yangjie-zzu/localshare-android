@@ -41,7 +41,11 @@ class TaskQueue(
         } else {
             suspendCoroutine {
                 this.submit(context) {
-                    it.resume(block())
+                    try {
+                        it.resume(block())
+                    } catch (e: Exception) {
+                        it.resumeWithException(e)
+                    }
                 }
             }
         }

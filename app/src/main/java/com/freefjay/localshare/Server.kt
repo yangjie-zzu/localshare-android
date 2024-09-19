@@ -16,6 +16,7 @@ import com.freefjay.localshare.util.LocalFileInfoContent
 import com.freefjay.localshare.util.downloadMessageFile
 import com.freefjay.localshare.util.exchangeDevice
 import com.freefjay.localshare.util.getFileInfo
+import com.freefjay.localshare.util.getFreePort
 import com.freefjay.localshare.util.hash
 import com.freefjay.localshare.util.queryList
 import com.freefjay.localshare.util.queryOne
@@ -23,6 +24,7 @@ import com.freefjay.localshare.util.save
 import com.google.gson.Gson
 import deviceEvent
 import deviceMessageEvent
+import io.ktor.client.engine.cio.CIO
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -30,11 +32,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.NullBody
 import io.ktor.server.application.call
 import io.ktor.server.application.install
+import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.netty.Netty
-import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.header
@@ -52,7 +53,7 @@ import java.io.FileNotFoundException
 import java.net.URLEncoder
 import java.util.Date
 
-var serverPort = 20000
+var serverPort: Int? = null
 
 fun getDevice(): Device {
     val device = Device()
@@ -65,10 +66,13 @@ fun getDevice(): Device {
     return device
 }
 
-fun createServer(): NettyApplicationEngine {
-    return embeddedServer(Netty, applicationEngineEnvironment {
+suspend fun createServer(): ApplicationEngine {
+    val freePort = getFreePort() ?: throw RuntimeException("not found port")
+    Log.i(TAG, "freePort: ${freePort}")
+    serverPort = freePort
+    return embeddedServer(io.ktor.server.cio.CIO, applicationEngineEnvironment {
         connector {
-            port = serverPort
+            port = freePort
         }
         module {
             install(PartialContent)
@@ -204,24 +208,7 @@ val registrationListener = object : NsdManager.RegistrationListener {
         Log.i(TAG, "onServiceUnregistered: ${serviceInfo?.serviceType}, ${serviceInfo?.serviceName}")
     }
 }
-val resolveListener = object : NsdManager.ResolveListener {
-    override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
-        Log.i(TAG, "onResolveFailed: ${serviceInfo?.serviceName}, ${serviceInfo?.serviceType}, ${errorCode}")
-    }
 
-    override fun onServiceResolved(serviceInfo: NsdServiceInfo?) {
-        Log.i(TAG, "解析设备: ${serviceInfo?.serviceName}, ${serviceInfo?.serviceType}")
-        val ip = serviceInfo?.host?.hostAddress
-        val port = serviceInfo?.port
-        Log.i(TAG, "解析ip: ${ip}, ${port}")
-        if (serviceInfo?.serviceType == ".${serviceType}" && serviceInfo.serviceName != getDevice().clientCode) {
-            Log.i(TAG, "添加设备")
-            CoroutineScope(Dispatchers.IO).launch {
-                exchangeDevice(ip, port)
-            }
-        }
-    }
-}
 val discoveryListener = object : NsdManager.DiscoveryListener {
     override fun onStartDiscoveryFailed(serviceType: String?, errorCode: Int) {
         Log.i(TAG, "onStartDiscoveryFailed: ${serviceType}, ${errorCode}")
@@ -247,7 +234,28 @@ val discoveryListener = object : NsdManager.DiscoveryListener {
         Log.i(TAG, "发现设备: ${serviceInfo?.serviceType}, ${serviceInfo?.serviceName}")
         if (serviceInfo?.serviceType == "${serviceType}." && serviceInfo.serviceName != getDevice().clientCode) {
             Log.i(TAG, "解析")
-            nsdManager?.resolveService(serviceInfo, resolveListener)
+            nsdManager?.resolveService(serviceInfo, object : NsdManager.ResolveListener {
+                override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
+                    Log.i(TAG, "onResolveFailed: ${serviceInfo?.serviceName}, ${serviceInfo?.serviceType}, ${errorCode}")
+                }
+
+                override fun onServiceResolved(serviceInfo: NsdServiceInfo?) {
+                    Log.i(TAG, "解析设备: ${serviceInfo?.serviceName}, ${serviceInfo?.serviceType}")
+                    val ip = serviceInfo?.host?.hostAddress
+                    val port = serviceInfo?.port
+                    Log.i(TAG, "解析ip: ${ip}, ${port}")
+                    if (serviceInfo?.serviceType == ".${serviceType}" && serviceInfo.serviceName != getDevice().clientCode) {
+                        Log.i(TAG, "添加设备")
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                exchangeDevice(ip, port)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "exchangeDevice: ", e)
+                            }
+                        }
+                    }
+                }
+            })
         }
     }
 

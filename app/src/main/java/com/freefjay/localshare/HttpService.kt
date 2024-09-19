@@ -10,15 +10,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class HttpService : Service() {
-    
-    private val httpService = createServer()
 
     override fun onCreate() {
         super.onCreate()
-        Log.i(TAG, "创建service")
-        httpService.start()
-        startNsd()
         CoroutineScope(Dispatchers.IO).launch {
+            Log.i(TAG, "启动server")
+            createServer().start()
+            Log.i(TAG, "启动server成功")
+            startNsd()
             while (true) {
                 delay(5000)
                 Log.i(TAG, "HttpService运行检测")

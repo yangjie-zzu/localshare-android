@@ -3,6 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val baseAppName = "localShare"
+
 android {
     namespace = "com.freefjay.localshare"
     compileSdk = 34
@@ -20,13 +22,27 @@ android {
         }
     }
 
+    signingConfigs {
+        create("prod") {
+            storeFile = File("D:\\Android\\Key\\free.jks")
+            storePassword = File("D:\\Android\\Key\\free.txt").readText()
+            keyAlias = "free"
+            keyPassword = File("D:\\Android\\Key\\free.txt").readText()
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs["prod"]
+        }
+        debug {
+            isDebuggable = true
+            applicationIdSuffix = ".debug"
         }
     }
     compileOptions {
@@ -47,6 +63,17 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/INDEX.LIST"
             excludes += "META-INF/io.netty.versions.properties"
+        }
+    }
+    android.applicationVariants.all {
+        outputs.all {
+            //自定义apk名称，区分不同环境
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "${applicationId}-${defaultConfig.versionName}.apk"
+            //自定义app显示名称，区分不同环境
+            if (buildType.isDebuggable) {
+                resValue("string", "app_name", "$baseAppName${arrayOf(flavorName, buildType.name).filter { it?.isNotEmpty() == true }
+                    .joinToString("-", prefix = "(", postfix = ")", transform = { it })}")
+            }
         }
     }
 }
@@ -72,7 +99,7 @@ dependencies {
     implementation(kotlin("reflect"))
 
     implementation("io.ktor:ktor-server-core:2.3.12")
-    implementation("io.ktor:ktor-server-netty:2.3.12")
+    implementation("io.ktor:ktor-server-cio:2.3.12")
     implementation("io.ktor:ktor-server-content-negotiation:2.3.12")
     implementation("io.ktor:ktor-server-partial-content:2.3.12")
     implementation("io.ktor:ktor-serialization-gson:2.3.12")

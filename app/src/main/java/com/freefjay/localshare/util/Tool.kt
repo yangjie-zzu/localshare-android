@@ -69,6 +69,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -77,8 +78,14 @@ import util.TaskQueue
 import util.taskQueue
 import java.io.File
 import java.io.FileInputStream
+import java.io.IOException
 import java.io.InputStream
 import java.io.RandomAccessFile
+import java.net.BindException
+import java.net.ConnectException
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.Date
@@ -532,4 +539,22 @@ fun hash(inputStream: InputStream): String {
         sb.append(((byte and 0xff.toByte()) + 0x100).toString(16).substring(1))
     }
     return sb.toString()
+}
+
+suspend fun getFreePort(startPort: Int = 20000): Int? {
+    return withContext(Dispatchers.IO) {
+        val inetAddress = InetAddress.getByName("127.0.0.1")
+        var port = startPort
+        while (port < 65536) {
+            try {
+                ServerSocket(port, 10, inetAddress).use {
+
+                }
+                return@withContext port
+            } catch (_: BindException) {
+            }
+            port += 1
+        }
+        return@withContext null
+    }
 }
