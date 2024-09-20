@@ -182,7 +182,7 @@ fun openFile(uriStr: String?, path: String?) {
     try {
         Log.i(TAG, "savePath: ${uriStr}")
         val intent = Intent(Intent.ACTION_VIEW)
-        intent.addCategory(Intent.CATEGORY_DEFAULT)
+//        intent.addCategory(Intent.CATEGORY_DEFAULT)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         val uri = Uri.parse(uriStr)

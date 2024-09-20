@@ -67,8 +67,10 @@ import com.freefjay.localshare.R
 import com.freefjay.localshare.TAG
 import com.freefjay.localshare.clientCode
 import com.freefjay.localshare.component.Page
+import com.freefjay.localshare.component.PopupTrigger
 import com.freefjay.localshare.component.Route
 import com.freefjay.localshare.component.Title
+import com.freefjay.localshare.component.onPopupOffset
 import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.httpClient
@@ -204,14 +206,31 @@ fun DeviceMessageView(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 content = {
                     itemsIndexed(items = deviceMessages, key = { _, it -> it.id ?: "" }) { _, it ->
-                        var offsetX by remember {
-                            mutableStateOf(0)
-                        }
-                        var offsetY by remember {
-                            mutableStateOf(0)
-                        }
-                        var show by remember {
-                            mutableStateOf(false)
+
+                        val popupContent = @Composable {
+                            Column(
+                                modifier = Modifier
+                                    .background(color = Color.White)
+                                    .border(
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = Color(0, 0, 0, 20)
+                                        ),
+                                        shape = RoundedCornerShape(5.dp)
+                                    )
+                                    .padding(5.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.clickable {
+                                        CoroutineScope(Dispatchers.IO).launch {
+                                            delete<DeviceMessage>(it.id)
+                                            queryMessage(device?.id, false)
+                                        }
+                                    }
+                                ) {
+                                    Text("删除")
+                                }
+                            }
                         }
                         fun openDetail() {
                             globalRouter?.open(
@@ -235,9 +254,6 @@ fun DeviceMessageView(
                                             .background(Color.Green)
                                             .clickable {
                                                 openDetail()
-                                            }
-                                            .onGloballyPositioned {
-                                                offsetY = it.size.height
                                             }
                                             .padding(5.dp)
                                     ) {
@@ -282,18 +298,19 @@ fun DeviceMessageView(
                                                 Text(text = it.content ?: "")
                                             }
                                         }
-                                        Image(
-                                            modifier = Modifier
-                                                .height(30.dp)
-                                                .width(20.dp)
-                                                .clickable {
-                                                    show = true
-                                                },
-                                            painter = rememberVectorPainter(image = Icons.Rounded.MoreVert),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.FillHeight,
-                                            alpha = 0.2f
-                                        )
+                                        PopupTrigger(
+                                            popupContent = popupContent
+                                        ) {
+                                            Image(
+                                                modifier = Modifier
+                                                    .height(30.dp)
+                                                    .width(20.dp),
+                                                painter = rememberVectorPainter(image = Icons.Rounded.MoreVert),
+                                                contentDescription = null,
+                                                contentScale = ContentScale.FillHeight,
+                                                alpha = 0.2f
+                                            )
+                                        }
                                     }
                                 }
                                 if (it.type == "send") {
@@ -305,9 +322,11 @@ fun DeviceMessageView(
                                             .clickable {
                                                 openDetail()
                                             }
-                                            .onGloballyPositioned {
-                                                offsetX = it.positionInParent().x.toInt()
-                                                offsetY = it.size.height
+                                            .onPopupOffset {
+                                                IntOffset(
+                                                    it.positionInParent().x.toInt(),
+                                                    it.size.height
+                                                )
                                             }
                                             .padding(5.dp)
                                     ) {
@@ -325,47 +344,18 @@ fun DeviceMessageView(
                                                 Text(text = it.content ?: "")
                                             }
                                         }
-                                        Image(
-                                            modifier = Modifier
-                                                .height(30.dp)
-                                                .width(20.dp)
-                                                .clickable {
-                                                    show = true
-                                                },
-                                            painter = rememberVectorPainter(image = Icons.Rounded.MoreVert),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.FillHeight,
-                                            alpha = 0.2f
-                                        )
-                                    }
-                                }
-                                if (show) {
-                                    Popup(
-                                        onDismissRequest = { show = false },
-                                        offset = IntOffset(offsetX, offsetY)
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .background(color = Color.White)
-                                                .border(
-                                                    border = BorderStroke(
-                                                        width = 1.dp,
-                                                        color = Color(0, 0, 0, 20)
-                                                    ),
-                                                    shape = RoundedCornerShape(5.dp)
-                                                )
-                                                .padding(5.dp)
+                                        PopupTrigger(
+                                            popupContent = popupContent
                                         ) {
-                                            Row(
-                                                modifier = Modifier.clickable {
-                                                    CoroutineScope(Dispatchers.IO).launch {
-                                                        delete<DeviceMessage>(it.id)
-                                                        queryMessage(device?.id, false)
-                                                    }
-                                                }
-                                            ) {
-                                                Text("删除")
-                                            }
+                                            Image(
+                                                modifier = Modifier
+                                                    .height(30.dp)
+                                                    .width(20.dp),
+                                                painter = rememberVectorPainter(image = Icons.Rounded.MoreVert),
+                                                contentDescription = null,
+                                                contentScale = ContentScale.FillHeight,
+                                                alpha = 0.2f
+                                            )
                                         }
                                     }
                                 }

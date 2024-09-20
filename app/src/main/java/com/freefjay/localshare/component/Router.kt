@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -81,4 +82,16 @@ fun RouterView(modifier: Modifier, main: Route, onLocalRouter: ((router: Router?
         }
     }
 
+}
+
+@Composable
+fun OnPageHide(block: () -> Unit) {
+    val router = LocalRouter.current
+    val currentRContent = LocalRContent.current
+    val isHide = (currentRContent?.index ?: 0) < (router?.getContents()?.size ?: 0) - 1
+    LaunchedEffect(isHide, block = {
+        if (isHide) {
+            block()
+        }
+    })
 }

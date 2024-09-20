@@ -47,6 +47,7 @@ import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.util.delete
 import com.freefjay.localshare.util.exchangeDevice
+import com.freefjay.localshare.util.queryById
 import com.freefjay.localshare.util.queryList
 import io.ktor.util.InternalAPI
 import kotlinx.coroutines.CoroutineScope
@@ -101,7 +102,7 @@ fun DeviceInfo(
     }
 
     suspend fun queryDevice(id: Long?) {
-        device = if (id == null) null else queryList<Device>("select * from device").firstOrNull()
+        device = queryById(id)
         ip.value = device?.ip
         port.value = device?.port
     }

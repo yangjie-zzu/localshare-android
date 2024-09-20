@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
                 LocalshareTheme {
                     // A surface container using the 'background' color from the theme
                     RouterView(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().padding(start = 10.dp, end = 10.dp),
                         main = Route(key = "main") {
                             Home()
                         },
