@@ -71,6 +71,7 @@ import com.freefjay.localshare.component.PopupTrigger
 import com.freefjay.localshare.component.Route
 import com.freefjay.localshare.component.Title
 import com.freefjay.localshare.component.onPopupOffset
+import com.freefjay.localshare.desktop.component.ActionButton
 import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.globalRouter
 import com.freefjay.localshare.httpClient
@@ -105,6 +106,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.Timer
 import java.util.TimerTask
@@ -440,8 +442,8 @@ fun DeviceMessageView(
                         }
                     }
                 }
-                fun sendMsg() {
-                    CoroutineScope(Dispatchers.IO).launch {
+                suspend fun sendMsg() {
+                    withContext(Dispatchers.IO) {
                         val deviceMessage = DeviceMessage(
                             type = "send",
                             content = content,
@@ -478,7 +480,7 @@ fun DeviceMessageView(
                     onValueChange = {content = it}, placeholder = { Text(text = "输入要发送的文字") },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Button(
+                ActionButton(
                     onClick = {
                         sendMsg()
                     }
