@@ -261,38 +261,38 @@ fun DeviceMessageView(
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
-                                            val fileProgress = fileProgressMap?.get(it.id)
                                             if (it.filename != null) {
+                                                val fileProgress = fileProgressMap?.get(it.id)
                                                 Text(text = it.filename ?: "")
-                                            }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                            ) {
-                                                Box(modifier = Modifier.size(20.dp)) {
-                                                    if (it.filename != null && it.downloadSuccess != true && fileProgress == null) {
-                                                        Image(painter = painterResource(id = R.drawable.download), contentDescription = "",
-                                                            modifier = Modifier.clickable {
-                                                                CoroutineScope(Dispatchers.IO).launch {
-                                                                    downloadMessageFile(device, it)
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                                ) {
+                                                    Box(modifier = Modifier.size(20.dp)) {
+                                                        if (it.filename != null && it.downloadSuccess != true && fileProgress == null) {
+                                                            Image(painter = painterResource(id = R.drawable.download), contentDescription = "",
+                                                                modifier = Modifier.clickable {
+                                                                    CoroutineScope(Dispatchers.IO).launch {
+                                                                        downloadMessageFile(device, it)
+                                                                    }
                                                                 }
-                                                            }
-                                                        )
-                                                    }
-                                                    if (it.downloadSuccess == true) {
-                                                        Image(painter = painterResource(id = R.drawable.download_success), contentDescription = "")
-                                                    } else if (fileProgress != null) {
-                                                        it.size?.let {size ->
-                                                            CircularProgressIndicator(
-                                                                progress = fileProgress.handleSize.toFloat()/size
                                                             )
                                                         }
+                                                        if (it.downloadSuccess == true) {
+                                                            Image(painter = painterResource(id = R.drawable.download_success), contentDescription = "")
+                                                        } else if (fileProgress != null) {
+                                                            it.size?.let {size ->
+                                                                CircularProgressIndicator(
+                                                                    progress = fileProgress.handleSize.toFloat()/size
+                                                                )
+                                                            }
+                                                        }
                                                     }
+                                                    Text(
+                                                        text = "${readableFileSize((if (it.downloadSuccess == true) it.downloadSize else (fileProgress?.handleSize ?: it.downloadSize)) ?: 0)}/${readableFileSize(it.size ?: 0)}",
+                                                        fontWeight = FontWeight.Light, fontSize = 14.sp
+                                                    )
                                                 }
-                                                Text(
-                                                    text = "${readableFileSize((if (it.downloadSuccess == true) it.downloadSize else (fileProgress?.handleSize ?: it.downloadSize)) ?: 0)}/${readableFileSize(it.size ?: 0)}",
-                                                    fontWeight = FontWeight.Light, fontSize = 14.sp
-                                                )
                                             }
                                             if (it.content != null) {
                                                 Text(text = it.content ?: "")
@@ -336,8 +336,6 @@ fun DeviceMessageView(
                                             Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
                                             if (it.filename != null) {
                                                 Text(text = it.filename ?: "")
-                                            }
-                                            if (it.size != null) {
                                                 Text(text = readableFileSize(it.size)?: "", fontWeight = FontWeight.Light, fontSize = 14.sp)
                                             }
                                             if (it.content != null) {
