@@ -116,8 +116,7 @@ lateinit var filePickerLauncher: ActivityResultLauncher<Array<String>>
 var onFilePicker: ((uri: Uri?) -> Unit)? = null
 
 fun registerFilePickerLauncher() {
-    filePickerLauncher = globalActivity.registerForActivityResult(ActivityResultContracts.OpenDocument()
-    ) {
+    filePickerLauncher = globalActivity.registerForActivityResult(ActivityResultContracts.OpenDocument()) {
         onFilePicker?.invoke(it)
         onFilePicker = null
     }
