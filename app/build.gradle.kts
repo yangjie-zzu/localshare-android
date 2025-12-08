@@ -1,9 +1,15 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
 
-val baseAppName = "localShare"
+val baseAppName = "LocalShare"
+
+val keystoreProperties = Properties()
+keystoreProperties.load(FileInputStream(rootProject.file("keystore.properties")))
 
 android {
     namespace = "com.freefjay.localshare"
@@ -13,8 +19,8 @@ android {
         applicationId = "com.freefjay.localshare"
         minSdk = 23
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.0"
+        versionCode = 4
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -24,10 +30,10 @@ android {
 
     signingConfigs {
         create("prod") {
-            storeFile = File("D:\\Android\\Key\\free.jks")
-            storePassword = File("D:\\Android\\Key\\free.txt").readText()
-            keyAlias = "free"
-            keyPassword = File("D:\\Android\\Key\\free.txt").readText()
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
         }
     }
 
