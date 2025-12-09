@@ -1,6 +1,5 @@
 package com.freefjay.localshare.util
 
-import android.content.ContentValues
 import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
@@ -10,10 +9,8 @@ import android.provider.MediaStore
 import android.provider.MediaStore.Files.FileColumns
 import android.provider.MediaStore.MediaColumns
 import android.provider.OpenableColumns
-import android.provider.SyncStateContract.Columns
 import android.util.Log
 import android.webkit.MimeTypeMap
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -32,11 +29,9 @@ import androidx.core.database.getBlobOrNull
 import androidx.core.database.getFloatOrNull
 import androidx.core.database.getIntOrNull
 import androidx.core.database.getStringOrNull
-import androidx.core.database.sqlite.transaction
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.freefjay.localshare.TAG
-import com.freefjay.localshare.getDevice
 import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.httpClient
 import com.freefjay.localshare.model.Device
@@ -69,29 +64,20 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.jetbrains.annotations.Async
-import util.TaskQueue
-import util.taskQueue
 import java.io.File
 import java.io.FileInputStream
-import java.io.IOException
 import java.io.InputStream
 import java.io.RandomAccessFile
 import java.net.BindException
-import java.net.ConnectException
 import java.net.InetAddress
 import java.net.ServerSocket
-import java.net.Socket
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.Date
-import java.util.concurrent.locks.Lock
 import kotlin.experimental.and
-import kotlin.math.ceil
 import kotlin.math.min
 
 data class FileInfo(

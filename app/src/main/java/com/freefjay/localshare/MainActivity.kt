@@ -9,7 +9,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,12 +30,13 @@ import com.freefjay.localshare.model.FilePart
 import com.freefjay.localshare.model.SysInfo
 import com.freefjay.localshare.pages.Home
 import com.freefjay.localshare.pages.registerFilePickerLauncher
+import com.freefjay.localshare.service.HttpService
 import com.freefjay.localshare.ui.theme.LocalshareTheme
 import com.freefjay.localshare.util.DbOpenHelper
 import com.freefjay.localshare.util.db
-import com.freefjay.localshare.util.delete
 import com.freefjay.localshare.util.queryOne
 import com.freefjay.localshare.util.save
+import com.freefjay.localshare.util.stopNsd
 import com.freefjay.localshare.util.updateTableStruct
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
@@ -135,6 +135,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         Log.i(TAG, "MainActivity退出")
         super.onDestroy()
+        stopNsd()
     }
 }
 

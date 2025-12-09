@@ -23,7 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.freefjay.localshare.component.Page
 import com.freefjay.localshare.component.Title
-import com.freefjay.localshare.getDevice
+import com.freefjay.localshare.util.getDevice
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.google.zxing.qrcode.encoder.Encoder

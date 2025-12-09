@@ -1,4 +1,4 @@
-package com.freefjay.localshare
+package com.freefjay.localshare.util
 
 import android.net.Uri
 import android.net.nsd.NsdManager
@@ -7,24 +7,17 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.getSystemService
+import com.freefjay.localshare.TAG
+import com.freefjay.localshare.clientCode
+import com.freefjay.localshare.globalActivity
 import com.freefjay.localshare.model.Device
 import com.freefjay.localshare.model.DeviceMessage
 import com.freefjay.localshare.model.DeviceMessageParams
 import com.freefjay.localshare.model.DownloadInfo
 import com.freefjay.localshare.pages.getLocalIp
-import com.freefjay.localshare.util.LocalFileInfoContent
-import com.freefjay.localshare.util.downloadMessageFile
-import com.freefjay.localshare.util.exchangeDevice
-import com.freefjay.localshare.util.getFileInfo
-import com.freefjay.localshare.util.getFreePort
-import com.freefjay.localshare.util.hash
-import com.freefjay.localshare.util.queryList
-import com.freefjay.localshare.util.queryOne
-import com.freefjay.localshare.util.save
 import com.google.gson.Gson
 import deviceEvent
 import deviceMessageEvent
-import io.ktor.client.engine.cio.CIO
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -232,7 +225,7 @@ val discoveryListener = object : NsdManager.DiscoveryListener {
 
     override fun onServiceFound(serviceInfo: NsdServiceInfo?) {
         Log.i(TAG, "发现设备: ${serviceInfo?.serviceType}, ${serviceInfo?.serviceName}")
-        if (serviceInfo?.serviceType == "${serviceType}." && serviceInfo.serviceName != getDevice().clientCode) {
+        if (serviceInfo?.serviceType == "$serviceType." && serviceInfo.serviceName != getDevice().clientCode) {
             Log.i(TAG, "解析")
             nsdManager?.resolveService(serviceInfo, object : NsdManager.ResolveListener {
                 override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
@@ -244,7 +237,7 @@ val discoveryListener = object : NsdManager.DiscoveryListener {
                     val ip = serviceInfo?.host?.hostAddress
                     val port = serviceInfo?.port
                     Log.i(TAG, "解析ip: ${ip}, ${port}")
-                    if (serviceInfo?.serviceType == ".${serviceType}" && serviceInfo.serviceName != getDevice().clientCode) {
+                    if (serviceInfo?.serviceType == ".$serviceType" && serviceInfo.serviceName != getDevice().clientCode) {
                         Log.i(TAG, "添加设备")
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
@@ -268,7 +261,6 @@ fun startNsd() {
     CoroutineScope(Dispatchers.IO).launch {
         val device = getDevice()
         val httpPort = device.port ?: return@launch
-        nsdManager = globalActivity.getSystemService()
         val serviceInfo = NsdServiceInfo()
         serviceInfo.serviceType = serviceType
         serviceInfo.serviceName = device.clientCode
@@ -277,4 +269,10 @@ fun startNsd() {
         nsdManager?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
         nsdManager?.discoverServices(serviceType, NsdManager.PROTOCOL_DNS_SD, discoveryListener)
     }
+}
+
+fun stopNsd() {
+    nsdManager = globalActivity.getSystemService()
+    nsdManager?.stopServiceDiscovery(discoveryListener)
+    nsdManager?.unregisterService(registrationListener)
 }

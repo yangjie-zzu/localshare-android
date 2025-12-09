@@ -1,9 +1,12 @@
-package com.freefjay.localshare
+package com.freefjay.localshare.service
 
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
+import com.freefjay.localshare.TAG
+import com.freefjay.localshare.util.createServer
+import com.freefjay.localshare.util.startNsd
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -15,7 +18,7 @@ class HttpService : Service() {
         super.onCreate()
         CoroutineScope(Dispatchers.IO).launch {
             Log.i(TAG, "启动server")
-            createServer().start()
+            createServer().start(wait = true)
             Log.i(TAG, "启动server成功")
             startNsd()
             while (true) {
