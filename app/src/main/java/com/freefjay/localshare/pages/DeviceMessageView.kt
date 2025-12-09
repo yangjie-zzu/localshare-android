@@ -11,6 +11,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Button
@@ -45,11 +47,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -146,6 +153,10 @@ fun DeviceMessageView(
         mutableStateOf<Map<Long?, FileProgress?>?>(null)
     }
 
+    val focusManager = LocalFocusManager.current
+
+    var selectionFocus by remember { mutableStateOf(false) }
+
     suspend fun queryDevice(deviceId: Long?) {
         device = queryOne("select * from device where id = ${deviceId}")
     }
@@ -187,6 +198,12 @@ fun DeviceMessageView(
                 it.putAll(fileProgresses)
             }
         })
+    }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress && selectionFocus) {
+            focusManager.clearFocus()
+        }
     }
 
     Page(
@@ -258,45 +275,51 @@ fun DeviceMessageView(
                                             }
                                             .padding(5.dp)
                                     ) {
-                                        Column(
-                                            modifier = Modifier.weight(1f)
+                                        SelectionContainer(
+                                            modifier = Modifier.onFocusChanged {
+                                                selectionFocus = it.isFocused
+                                            }
                                         ) {
-                                            Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
-                                            if (it.filename != null) {
-                                                val fileProgress = fileProgressMap?.get(it.id)
-                                                Text(text = it.filename ?: "")
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                                ) {
-                                                    Box(modifier = Modifier.size(20.dp)) {
-                                                        if (it.filename != null && it.downloadSuccess != true && fileProgress == null) {
-                                                            Image(painter = painterResource(id = R.drawable.download), contentDescription = "",
-                                                                modifier = Modifier.clickable {
-                                                                    CoroutineScope(Dispatchers.IO).launch {
-                                                                        downloadMessageFile(device, it)
+                                            Column(
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
+                                                if (it.filename != null) {
+                                                    val fileProgress = fileProgressMap?.get(it.id)
+                                                    Text(text = it.filename ?: "")
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                                    ) {
+                                                        Box(modifier = Modifier.size(20.dp)) {
+                                                            if (it.filename != null && it.downloadSuccess != true && fileProgress == null) {
+                                                                Image(painter = painterResource(id = R.drawable.download), contentDescription = "",
+                                                                    modifier = Modifier.clickable {
+                                                                        CoroutineScope(Dispatchers.IO).launch {
+                                                                            downloadMessageFile(device, it)
+                                                                        }
                                                                     }
-                                                                }
-                                                            )
-                                                        }
-                                                        if (it.downloadSuccess == true) {
-                                                            Image(painter = painterResource(id = R.drawable.download_success), contentDescription = "")
-                                                        } else if (fileProgress != null) {
-                                                            it.size?.let {size ->
-                                                                CircularProgressIndicator(
-                                                                    progress = fileProgress.handleSize.toFloat()/size
                                                                 )
                                                             }
+                                                            if (it.downloadSuccess == true) {
+                                                                Image(painter = painterResource(id = R.drawable.download_success), contentDescription = "")
+                                                            } else if (fileProgress != null) {
+                                                                it.size?.let {size ->
+                                                                    CircularProgressIndicator(
+                                                                        progress = fileProgress.handleSize.toFloat()/size
+                                                                    )
+                                                                }
+                                                            }
                                                         }
+                                                        Text(
+                                                            text = "${readableFileSize((if (it.downloadSuccess == true) it.downloadSize else (fileProgress?.handleSize ?: it.downloadSize)) ?: 0)}/${readableFileSize(it.size ?: 0)}",
+                                                            fontWeight = FontWeight.Light, fontSize = 14.sp
+                                                        )
                                                     }
-                                                    Text(
-                                                        text = "${readableFileSize((if (it.downloadSuccess == true) it.downloadSize else (fileProgress?.handleSize ?: it.downloadSize)) ?: 0)}/${readableFileSize(it.size ?: 0)}",
-                                                        fontWeight = FontWeight.Light, fontSize = 14.sp
-                                                    )
                                                 }
-                                            }
-                                            if (it.content != null) {
-                                                Text(text = it.content ?: "")
+                                                if (it.content != null) {
+                                                    Text(text = it.content ?: "")
+                                                }
                                             }
                                         }
                                         PopupTrigger(
@@ -331,17 +354,24 @@ fun DeviceMessageView(
                                             }
                                             .padding(5.dp)
                                     ) {
-                                        Column(
-                                            modifier = Modifier.weight(1f)
+                                        SelectionContainer(
+                                            modifier = Modifier.onFocusChanged {
+                                                selectionFocus = it.isFocused
+                                            }
                                         ) {
-                                            Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
-                                            if (it.filename != null) {
-                                                Text(text = it.filename ?: "")
-                                                Text(text = readableFileSize(it.size)?: "", fontWeight = FontWeight.Light, fontSize = 14.sp)
+                                            Column(
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(text = it.createdTime?.friendly() ?: "", fontSize = 13.sp, fontWeight = FontWeight.Light)
+                                                if (it.filename != null) {
+                                                    Text(text = it.filename ?: "")
+                                                    Text(text = readableFileSize(it.size)?: "", fontWeight = FontWeight.Light, fontSize = 14.sp)
+                                                }
+                                                if (it.content != null) {
+                                                    Text(text = it.content ?: "")
+                                                }
                                             }
-                                            if (it.content != null) {
-                                                Text(text = it.content ?: "")
-                                            }
+
                                         }
                                         PopupTrigger(
                                             popupContent = popupContent

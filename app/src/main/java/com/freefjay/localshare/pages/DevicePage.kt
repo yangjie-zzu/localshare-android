@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -150,8 +151,20 @@ fun DevicePage() {
                                     top = 10.dp,
                                     bottom = 10.dp
                                 ),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Image(
+                                painter = if (item.osName?.lowercase()?.startsWith("windows") == true) {
+                                    painterResource(id = R.drawable.windows)
+                                } else if (item.osName?.lowercase() == "android") {
+                                    painterResource(id = R.drawable.android)
+                                } else {
+                                    painterResource(id = R.drawable.unknow)
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp)
+                            )
                             Column(
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -161,13 +174,6 @@ fun DevicePage() {
                                     fontSize = 20.sp
                                 )
                                 Text(text = "${item.ip}:${item.port}")
-                            }
-                            if (item.osName?.lowercase()?.contains("windows") == true) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.windows11_logo),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(40.dp)
-                                )
                             }
                             PopupTrigger(
                                 popupContent = {
