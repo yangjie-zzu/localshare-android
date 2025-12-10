@@ -18,7 +18,7 @@ class HttpService : Service() {
         super.onCreate()
         CoroutineScope(Dispatchers.IO).launch {
             Log.i(TAG, "启动server")
-            createServer().start(wait = true)
+            createServer().start(wait = false)
             Log.i(TAG, "启动server成功")
             startNsd()
             while (true) {

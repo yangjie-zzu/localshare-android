@@ -1,5 +1,9 @@
 package com.freefjay.localshare.util
 
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
@@ -266,13 +270,13 @@ fun startNsd() {
         serviceInfo.serviceName = device.clientCode
         serviceInfo.port = httpPort
         multicastLock?.acquire()
+        nsdManager = globalActivity.getSystemService()
         nsdManager?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
         nsdManager?.discoverServices(serviceType, NsdManager.PROTOCOL_DNS_SD, discoveryListener)
     }
 }
 
 fun stopNsd() {
-    nsdManager = globalActivity.getSystemService()
     nsdManager?.stopServiceDiscovery(discoveryListener)
     nsdManager?.unregisterService(registrationListener)
 }
