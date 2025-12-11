@@ -77,11 +77,11 @@ fun DevicePage() {
         queryDevices()
     })
 
-    OnEvent(event = deviceEvent) {
+    OnEvent(event = deviceEvent, remember { {
         CoroutineScope(Dispatchers.IO).launch {
             queryDevices()
         }
-    }
+    } })
 
     Page(
         title = {

@@ -183,13 +183,13 @@ fun DeviceMessageView(
         queryMessage(deviceId)
     })
 
-    OnEvent(event = deviceMessageEvent) {
+    OnEvent(event = deviceMessageEvent, remember(deviceId) { {
         if (it.deviceId == deviceId) {
             CoroutineScope(Dispatchers.Default).launch {
                 queryMessage(deviceId)
             }
         }
-    }
+    } })
 
     if (deviceMessages.any { it.type == "receive" && it.downloadSuccess != true }) {
         Log.i(TAG, "定时任务")

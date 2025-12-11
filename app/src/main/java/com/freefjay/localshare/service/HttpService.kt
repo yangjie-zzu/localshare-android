@@ -16,16 +16,6 @@ class HttpService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        CoroutineScope(Dispatchers.IO).launch {
-            Log.i(TAG, "启动server")
-            createServer().start(wait = false)
-            Log.i(TAG, "启动server成功")
-            startNsd()
-            while (true) {
-                delay(5000)
-                Log.i(TAG, "HttpService运行检测")
-            }
-        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

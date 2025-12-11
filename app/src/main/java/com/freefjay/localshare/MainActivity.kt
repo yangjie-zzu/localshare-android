@@ -33,13 +33,21 @@ import com.freefjay.localshare.pages.registerFilePickerLauncher
 import com.freefjay.localshare.service.HttpService
 import com.freefjay.localshare.ui.theme.LocalshareTheme
 import com.freefjay.localshare.util.DbOpenHelper
+import com.freefjay.localshare.util.createServer
 import com.freefjay.localshare.util.db
 import com.freefjay.localshare.util.queryOne
 import com.freefjay.localshare.util.save
+import com.freefjay.localshare.util.startNsd
 import com.freefjay.localshare.util.stopNsd
 import com.freefjay.localshare.util.updateTableStruct
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.server.engine.ApplicationEngine
+import io.ktor.server.engine.stop
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 const val TAG = "LOCALSHARE"
@@ -56,6 +64,9 @@ val httpClient = HttpClient {
 var clientCode: String? = null
 
 class MainActivity : ComponentActivity() {
+
+    private var server: ApplicationEngine? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         globalActivity = this
@@ -85,6 +96,7 @@ class MainActivity : ComponentActivity() {
                     sysInfo.value
                 }
                 globalActivity.startService(Intent(globalActivity, HttpService::class.java))
+                startHttpSever()
                 init = true
             })
 
@@ -136,6 +148,20 @@ class MainActivity : ComponentActivity() {
         Log.i(TAG, "MainActivity退出")
         super.onDestroy()
         stopNsd()
+        this.server?.stop()
+    }
+
+    fun startHttpSever() {
+        CoroutineScope(Dispatchers.IO).launch {
+            Log.i(TAG, "启动server")
+            server = createServer().start(wait = false)
+            Log.i(TAG, "启动server成功")
+            startNsd()
+            while (true) {
+                delay(5000)
+                Log.i(TAG, "HttpService运行检测")
+            }
+        }
     }
 }
 
